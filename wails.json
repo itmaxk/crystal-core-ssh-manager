@@ -12,7 +12,7 @@
   "info": {
     "companyName": "Crystal-Core",
     "productName": "Crystal-Core SSH Manager",
-    "productVersion": "1.0.0",
+    "productVersion": "1.1.0",
     "copyright": "© 2026 Crystal-Core",
     "comments": "Lightweight SSH manager and launcher"
   }
