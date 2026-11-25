@@ -44,6 +44,72 @@ export namespace app {
 	        this.key_id = source["key_id"];
 	    }
 	}
+	export class DiscoveredService {
+	    port: number;
+	    name: string;
+	    process?: string;
+	    bind: string;
+	    addresses: string[];
+	    remote_addr: string;
+	    local_port: number;
+	    is_rdp: boolean;
+	    system: boolean;
+	    reason?: string;
+	    existing_tunnel?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiscoveredService(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.port = source["port"];
+	        this.name = source["name"];
+	        this.process = source["process"];
+	        this.bind = source["bind"];
+	        this.addresses = source["addresses"];
+	        this.remote_addr = source["remote_addr"];
+	        this.local_port = source["local_port"];
+	        this.is_rdp = source["is_rdp"];
+	        this.system = source["system"];
+	        this.reason = source["reason"];
+	        this.existing_tunnel = source["existing_tunnel"];
+	    }
+	}
+	export class DiscoveryResult {
+	    os: string;
+	    is_ubuntu: boolean;
+	    services: DiscoveredService[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DiscoveryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.os = source["os"];
+	        this.is_ubuntu = source["is_ubuntu"];
+	        this.services = this.convertValues(source["services"], DiscoveredService);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ImportSummary {
 	    keys_added: number;
 	    keys_existing: number;

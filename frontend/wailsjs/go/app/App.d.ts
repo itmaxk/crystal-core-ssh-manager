@@ -16,6 +16,8 @@ export function DeleteKey(arg1:string):Promise<void>;
 
 export function DeleteTunnel(arg1:string):Promise<void>;
 
+export function DiscoverServices(arg1:string):Promise<app.DiscoveryResult>;
+
 export function ExitApp():Promise<void>;
 
 export function ExportBackup(arg1:string):Promise<string>;

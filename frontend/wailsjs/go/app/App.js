@@ -26,6 +26,10 @@ export function DeleteTunnel(arg1) {
   return window['go']['app']['App']['DeleteTunnel'](arg1);
 }
 
+export function DiscoverServices(arg1) {
+  return window['go']['app']['App']['DiscoverServices'](arg1);
+}
+
 export function ExitApp() {
   return window['go']['app']['App']['ExitApp']();
 }

@@ -74,6 +74,11 @@ interface SSHStore {
   startTunnel: (tunnelId: string, hostId: string) => Promise<void>;
   stopTunnel: (tunnelId: string) => Promise<void>;
   openRDP: (tunnelId: string) => Promise<void>;
+  createTunnels: (
+    hostId: string,
+    tunnels: { name: string; local_addr: string; remote_addr: string }[],
+    start: boolean
+  ) => Promise<{ created: number; errors: string[] }>;
   onUploadProgressEvent: (hostId: string, percent: number, done: boolean, hasError: boolean) => void;
   setAgentAvailable: (available: boolean) => void;
 }
@@ -336,6 +341,34 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
     } catch (err) {
       get().notify('error', `Не удалось остановить туннель: ${errorMessage(err)}`);
     }
+  },
+
+  createTunnels: async (hostId, tunnels, start) => {
+    let created = 0;
+    const errors: string[] = [];
+    for (const t of tunnels) {
+      try {
+        const saved = await SaveTunnel(db.Tunnel.createFrom({
+          id: '', host_id: hostId, name: t.name, direction: 'L',
+          local_addr: t.local_addr, remote_addr: t.remote_addr, auto_start: false,
+        }));
+        created++;
+        if (start && saved?.id) {
+          try {
+            await StartTunnel(saved.id, hostId);
+          } catch (err) {
+            errors.push(`${t.name}: создан, но не запущен — ${errorMessage(err)}`);
+          }
+        }
+      } catch (err) {
+        errors.push(`${t.name}: ${errorMessage(err)}`);
+      }
+    }
+    await get().loadTunnels();
+    if (created > 0) {
+      get().notify('info', `Создано туннелей: ${created}${start ? ', запущены' : ''}`);
+    }
+    return { created, errors };
   },
 
   openRDP: async (tunnelId) => {

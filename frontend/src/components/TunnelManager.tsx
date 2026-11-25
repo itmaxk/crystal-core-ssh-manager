@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowLeftRight, ArrowRight, Globe, Loader2, Monitor, Pencil, Play, Plus, Server, Square, Trash2, X, Zap,
+  AlertTriangle, ArrowLeftRight, ArrowRight, Globe, Loader2, Monitor, Pencil, Play, Plus, Radar, Server, Square, Trash2, X, Zap,
 } from 'lucide-react';
 import { Host, TunnelDirection, TunnelDraft, TunnelSummary } from '../types/ssh';
 import { errorMessage } from '../store/useSSHStore';
+import { DiscoveredTunnel, ServiceDiscovery } from './ServiceDiscovery';
 import { useEscape } from '../hooks/useEscape';
 
 interface TunnelManagerProps {
@@ -16,6 +17,7 @@ interface TunnelManagerProps {
   onStart: (tunnelId: string, hostId: string) => void;
   onStop: (tunnelId: string) => void;
   onOpenRDP: (tunnelId: string) => Promise<void>;
+  onCreateMany: (hostId: string, tunnels: DiscoveredTunnel[], start: boolean) => Promise<{ created: number; errors: string[] }>;
 }
 
 const DIRECTIONS: { value: TunnelDirection; label: string; flag: string; hint: string }[] = [
@@ -58,9 +60,11 @@ export const isRDPTunnel = (t: Pick<TunnelSummary, 'direction' | 'remote_addr'>)
 const isRunning = (t: TunnelSummary) => t.state !== 'stopped' && t.state !== 'error';
 
 export const TunnelManager: React.FC<TunnelManagerProps> = ({
-  hosts, tunnelsByHost, hostFilter, onHostFilterChange, onSave, onDelete, onStart, onStop, onOpenRDP,
+  hosts, tunnelsByHost, hostFilter, onHostFilterChange, onSave, onDelete, onStart, onStop, onOpenRDP, onCreateMany,
 }) => {
   const [editing, setEditing] = useState<TunnelDraft | null>(null);
+  const [discoverHost, setDiscoverHost] = useState<string | null>(null);
+  const hasKeyedHosts = hosts.some((h) => h.key_id);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const hostById = useMemo(() => new Map(hosts.map((h) => [h.id, h])), [hosts]);
@@ -114,9 +118,18 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
           )}
           <button
             type="button"
+            onClick={() => setDiscoverHost(hostFilter)}
+            disabled={!hasKeyedHosts}
+            title="Подключиться по SSH, найти сервисы на сервере и создать туннели к ним"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-neutral-200 dark:hover:bg-white/10"
+          >
+            <Radar className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Найти сервисы</span>
+          </button>
+          <button
+            type="button"
             onClick={openCreate}
             disabled={hosts.length === 0}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Новый туннель
           </button>
@@ -142,9 +155,16 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
             Пробросьте базу данных на localhost, откройте локальный сервис наружу через сервер или поднимите SOCKS5-прокси.
           </p>
           {hosts.length > 0 && (
-            <button type="button" onClick={openCreate} className="mt-4 flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-500">
-              <Plus className="h-3.5 w-3.5" /> Создать туннель
-            </button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {hasKeyedHosts && (
+                <button type="button" onClick={() => setDiscoverHost(hostFilter)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-500">
+                  <Radar className="h-3.5 w-3.5" /> Найти сервисы на сервере
+                </button>
+              )}
+              <button type="button" onClick={openCreate} className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3.5 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
+                <Plus className="h-3.5 w-3.5" /> Создать вручную
+              </button>
+            </div>
           )}
         </div>
       ) : (
@@ -159,6 +179,16 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
                   <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                     <AlertTriangle className="h-2.5 w-2.5" /> Нет ключа
                   </span>
+                )}
+                {host.key_id && (
+                  <button
+                    type="button"
+                    onClick={() => setDiscoverHost(host.id)}
+                    title="Найти на этом сервере сервисы без туннелей"
+                    className="ml-auto flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-500/10 dark:text-blue-400"
+                  >
+                    <Radar className="h-3 w-3" /> Найти сервисы
+                  </button>
                 )}
               </div>
               <div className="space-y-2">
@@ -180,6 +210,15 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
             </section>
           ))}
         </div>
+      )}
+
+      {discoverHost !== null && (
+        <ServiceDiscovery
+          hosts={hosts}
+          initialHostId={discoverHost}
+          onClose={() => setDiscoverHost(null)}
+          onCreate={onCreateMany}
+        />
       )}
 
       {editing && (

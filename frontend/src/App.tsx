@@ -30,7 +30,7 @@ export function App() {
     hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, envFilter,
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
     connectHosts, quickConnect, saveAndConnectHost, saveHost, pinHost, deleteHost, uploadFiles,
-    saveTunnel, deleteTunnel, startTunnel, stopTunnel, openRDP,
+    saveTunnel, deleteTunnel, startTunnel, stopTunnel, openRDP, createTunnels,
     notice, notify, dismissNotice,
     onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
   } = useSSHStore();
@@ -190,6 +190,7 @@ export function App() {
               onStart={startTunnel}
               onStop={stopTunnel}
               onOpenRDP={openRDP}
+              onCreateMany={createTunnels}
             />
           )}
 
