@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
+	"ssh-launcher/internal/crypto"
+	"ssh-launcher/internal/db"
 	sshsvc "ssh-launcher/internal/ssh"
 	"ssh-launcher/internal/terminal"
 )
@@ -40,7 +43,69 @@ func (a *App) OpenRDP(tunnelID string) error {
 	if err := a.waitTunnelPort(ctx, t.ID, addr); err != nil {
 		return err
 	}
-	return terminal.OpenRDP(addr)
+
+	creds, err := a.rdpCredentials(t)
+	if err != nil {
+		return err
+	}
+	if creds != nil {
+		defer crypto.ZeroBytes(creds.Password)
+	}
+	return terminal.OpenRDP(addr, creds)
+}
+
+func (a *App) rdpCredentials(t *db.Tunnel) (*terminal.RDPCredentials, error) {
+	if t.RDPUsername == "" {
+		return nil, nil
+	}
+	creds := &terminal.RDPCredentials{Username: t.RDPUsername, Domain: t.RDPDomain}
+	if t.HasRDPPassword {
+		enc, err := a.store.Tunnels.RDPPasswordEnc(a.ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		if creds.Password, err = a.vault.Decrypt(enc); err != nil {
+			return nil, fmt.Errorf("decrypt RDP password: %w", err)
+		}
+	}
+	return creds, nil
+}
+
+// RDPCredentialsInput — данные из формы туннеля. Пустой Password при
+// KeepPassword оставляет сохранённый пароль; пустой Username удаляет всё.
+type RDPCredentialsInput struct {
+	TunnelID     string `json:"tunnel_id"`
+	Username     string `json:"username"`
+	Domain       string `json:"domain"`
+	Password     string `json:"password"`
+	KeepPassword bool   `json:"keep_password"`
+}
+
+// SaveRDPCredentials сохраняет логин и (зашифрованный) пароль RDP туннеля.
+func (a *App) SaveRDPCredentials(in RDPCredentialsInput) error {
+	if err := a.ready(); err != nil {
+		return err
+	}
+	in.Username = strings.TrimSpace(in.Username)
+	in.Domain = strings.TrimSpace(in.Domain)
+	for _, v := range []string{in.Username, in.Domain, in.Password} {
+		if strings.ContainsAny(v, "\r\n\x00") {
+			return errors.New("логин, домен и пароль RDP не могут содержать переводы строк")
+		}
+	}
+	if in.Username == "" {
+		return a.store.Tunnels.SetRDPCredentials(a.ctx, in.TunnelID, "", "", nil, false)
+	}
+	if in.Password == "" {
+		return a.store.Tunnels.SetRDPCredentials(a.ctx, in.TunnelID, in.Username, in.Domain, nil, in.KeepPassword)
+	}
+	pw := []byte(in.Password)
+	defer crypto.ZeroBytes(pw)
+	enc, err := a.vault.Encrypt(pw)
+	if err != nil {
+		return fmt.Errorf("encrypt RDP password: %w", err)
+	}
+	return a.store.Tunnels.SetRDPCredentials(a.ctx, in.TunnelID, in.Username, in.Domain, enc, false)
 }
 
 // rdpConnectAddr превращает адрес прослушивания туннеля в адрес для клиента:

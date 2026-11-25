@@ -85,6 +85,7 @@ func runMigrations(db *sql.DB) error {
 		file    string
 	}{
 		{1, "migrations/001_init.sql"},
+		{2, "migrations/002_rdp_credentials.sql"},
 	}
 
 	for _, m := range migrations {

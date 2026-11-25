@@ -9,6 +9,7 @@ import (
 
 	"ssh-launcher/internal/crypto"
 	"ssh-launcher/internal/db"
+	sshsvc "ssh-launcher/internal/ssh"
 )
 
 func newTestApp(t *testing.T) *App {
@@ -28,7 +29,7 @@ func newTestApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &App{ctx: context.Background(), store: store, vault: vault}
+	return &App{ctx: context.Background(), store: store, vault: vault, tunnels: sshsvc.NewTunnelManager(nil)}
 }
 
 func strPtr(s string) *string { return &s }

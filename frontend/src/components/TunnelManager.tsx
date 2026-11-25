@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowLeftRight, ArrowRight, Globe, Loader2, Monitor, Pencil, Play, Plus, Radar, Server, Square, Trash2, X, Zap,
+  AlertTriangle, ArrowLeftRight, ArrowRight, Eye, EyeOff, Globe, KeyRound, Loader2, Monitor, Pencil, Play, Plus, Radar, Server, Square, Trash2, X, Zap,
 } from 'lucide-react';
 import { Host, TunnelDirection, TunnelDraft, TunnelSummary } from '../types/ssh';
 import { errorMessage } from '../store/useSSHStore';
@@ -201,6 +201,7 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
                     onEdit={() => setEditing({
                       id: t.id, host_id: t.host_id, name: t.name, direction: t.direction,
                       local_addr: t.local_addr, remote_addr: t.remote_addr, auto_start: t.auto_start,
+                      rdp_username: t.rdp_username, rdp_domain: t.rdp_domain, has_rdp_password: t.has_rdp_password,
                     })}
                     onDelete={() => handleDelete(t.id)}
                     onOpenRDP={isRDPTunnel(t) ? () => onOpenRDP(t.id) : undefined}
@@ -270,6 +271,15 @@ const TunnelRow: React.FC<{
               {dir?.flag ?? t.direction}
             </span>
             <span className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">{t.name}</span>
+            {isRDPTunnel(t) && t.rdp_username && (
+              <span
+                title={t.has_rdp_password ? `Вход как ${t.rdp_username} — пароль сохранён` : `Логин ${t.rdp_username}, пароль спросит RDP-клиент`}
+                className="inline-flex min-w-0 shrink items-center gap-0.5 rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+              >
+                <KeyRound className={`h-2.5 w-2.5 shrink-0 ${t.has_rdp_password ? 'text-amber-500' : ''}`} />
+                <span className="truncate">{t.rdp_username}</span>
+              </span>
+            )}
             {t.auto_start && (
               <span title="Запускается вместе с приложением" className="inline-flex shrink-0 items-center gap-0.5 rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:bg-white/10 dark:text-neutral-300">
                 <Zap className="h-2.5 w-2.5" /> Авто
@@ -355,6 +365,80 @@ const TunnelMapping: React.FC<{ tunnel: Pick<TunnelSummary, 'direction' | 'local
   );
 };
 
+const PLATFORM = typeof navigator === 'undefined' ? 'linux'
+  : /Windows/i.test(navigator.userAgent) ? 'windows'
+  : /Mac/i.test(navigator.userAgent) ? 'mac' : 'linux';
+
+const RDP_AUTOLOGIN_HINT: Record<typeof PLATFORM, string> = {
+  windows: 'mstsc получит логин и пароль через диспетчер учётных данных Windows только на время подключения.',
+  linux: 'Пароль передаётся в FreeRDP (пакет freerdp3-x11 или freerdp2-x11); Remmina получит только логин.',
+  mac: 'Windows App не принимает пароль извне: подставится только логин, пароль можно запомнить в самом Windows App.',
+};
+
+const RDPLoginFields: React.FC<{
+  draft: TunnelDraft;
+  setDraft: React.Dispatch<React.SetStateAction<TunnelDraft>>;
+}> = ({ draft, setDraft }) => {
+  const [show, setShow] = useState(false);
+  const hasSaved = Boolean(draft.has_rdp_password) && !draft.rdp_forget_password;
+  const set = (patch: Partial<TunnelDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const field = inputClass(false).replace('font-mono ', '');
+
+  return (
+    <fieldset className="space-y-2 rounded-lg border border-black/10 p-3 dark:border-white/10">
+      <legend className="flex items-center gap-1.5 px-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+        <KeyRound className="h-3 w-3 text-amber-500" /> Вход в удалённый рабочий стол
+        <span className="font-normal text-neutral-400">— необязательно</span>
+      </legend>
+      <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2">
+        <div>
+          <label htmlFor="rdp-user" className="mb-1 block text-[11px] text-neutral-600 dark:text-neutral-400">Логин</label>
+          <input id="rdp-user" type="text" autoComplete="off" spellCheck={false} value={draft.rdp_username ?? ''}
+            onChange={(e) => set({ rdp_username: e.target.value })} placeholder="Administrator" className={field} />
+        </div>
+        <div>
+          <label htmlFor="rdp-domain" className="mb-1 block text-[11px] text-neutral-600 dark:text-neutral-400">Домен</label>
+          <input id="rdp-domain" type="text" autoComplete="off" spellCheck={false} value={draft.rdp_domain ?? ''}
+            onChange={(e) => set({ rdp_domain: e.target.value })} placeholder="необязательно" className={field} />
+        </div>
+      </div>
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label htmlFor="rdp-password" className="text-[11px] text-neutral-600 dark:text-neutral-400">Пароль</label>
+          {hasSaved && (
+            <button type="button" onClick={() => set({ rdp_forget_password: true, rdp_password: '' })} className="text-[11px] font-medium text-red-600 hover:underline dark:text-red-400">
+              Удалить сохранённый
+            </button>
+          )}
+          {draft.has_rdp_password && draft.rdp_forget_password && (
+            <button type="button" onClick={() => set({ rdp_forget_password: false })} className="text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400">
+              Вернуть сохранённый
+            </button>
+          )}
+        </div>
+        <div className="relative">
+          <input
+            id="rdp-password"
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={draft.rdp_password ?? ''}
+            disabled={!(draft.rdp_username ?? '').trim()}
+            onChange={(e) => set({ rdp_password: e.target.value, rdp_forget_password: false })}
+            placeholder={hasSaved ? 'Сохранён — оставьте пустым, чтобы не менять' : draft.rdp_forget_password ? 'Будет удалён при сохранении' : ''}
+            className={`${field} pr-9 disabled:opacity-50`}
+          />
+          <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? 'Скрыть пароль' : 'Показать пароль'} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200">
+            {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+      <p className="text-[11px] text-neutral-500">
+        Пароль хранится зашифрованным (AES-256-GCM, мастер-ключ в системном хранилище). {RDP_AUTOLOGIN_HINT[PLATFORM]}
+      </p>
+    </fieldset>
+  );
+};
+
 export const inputClass = (invalid: boolean) =>
   `w-full rounded-lg border bg-black/[0.03] px-3 py-1.5 font-mono text-sm outline-none focus:border-blue-500 dark:bg-white/5 dark:text-white ${
     invalid ? 'border-red-500/60' : 'border-black/10 dark:border-white/10'
@@ -421,6 +505,9 @@ const TunnelForm: React.FC<{
         name: draft.name.trim(),
         local_addr: draft.local_addr.trim(),
         remote_addr: draft.direction === 'D' ? '' : draft.remote_addr.trim(),
+        // undefined — учётные данные RDP не трогаем (туннель не RDP).
+        rdp_username: isRDPTunnel(draft) ? (draft.rdp_username ?? '').trim() : undefined,
+        rdp_domain: (draft.rdp_domain ?? '').trim(),
       });
     } catch (err) {
       setError(errorMessage(err));
@@ -431,7 +518,7 @@ const TunnelForm: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-labelledby="tunnel-form-title" className="w-full max-w-[500px] overflow-hidden rounded-2xl border border-black/10 bg-white/95 shadow-2xl dark:border-white/10 dark:bg-neutral-900/95">
+      <div role="dialog" aria-modal="true" aria-labelledby="tunnel-form-title" className="max-h-full w-full max-w-[500px] overflow-y-auto rounded-2xl border border-black/10 bg-white/95 shadow-2xl dark:border-white/10 dark:bg-neutral-900/95">
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-3.5 dark:border-white/10">
           <h2 id="tunnel-form-title" className="text-sm font-semibold">{isEdit ? 'Изменить туннель' : 'Новый туннель'}</h2>
           <button type="button" onClick={onCancel} aria-label="Закрыть" className="rounded-lg p-1.5 text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10">
@@ -547,6 +634,8 @@ const TunnelForm: React.FC<{
               Кнопка «RDP» в списке поднимет туннель и откроет удалённый рабочий стол. Если Windows-машина находится за сервером, укажите её адрес вместо <span className="font-mono">localhost</span>, например <span className="font-mono">10.0.0.5:3389</span>.
             </p>
           )}
+
+          {isRDPTunnel(draft) && <RDPLoginFields draft={draft} setDraft={setDraft} />}
 
           {sshPreview && (
             <div className="rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/5">

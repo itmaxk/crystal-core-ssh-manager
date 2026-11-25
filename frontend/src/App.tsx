@@ -17,6 +17,7 @@ import { KeyVault } from './components/KeyVault';
 import { TunnelManager } from './components/TunnelManager';
 import { HostForm, hostToDraft, newHostDraft } from './components/HostForm';
 import { BackupPanel } from './components/BackupPanel';
+import { AboutCard, SidebarPromo } from './components/CrystalCorePromo';
 import { CloseToTrayDialog, isCloseHintHidden, setCloseHintHidden } from './components/CloseToTrayDialog';
 import { HostDraft, ParsedTarget } from './types/ssh';
 
@@ -172,6 +173,7 @@ export function App() {
             <SidebarItem icon={<KeyRound className="h-4 w-4" />} label="Ключи" active={activeSection === 'keys'} count={keys.length} onClick={() => setActiveSection('keys')} />
           </nav>
           <div className="text-xs font-medium">
+            <SidebarPromo />
             <SidebarItem icon={<Settings className="h-4 w-4" />} label="Настройки" active={activeSection === 'settings'} onClick={() => setActiveSection('settings')} />
           </div>
         </aside>
@@ -213,6 +215,8 @@ export function App() {
                 {syncStatus && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{syncStatus}</p>}
                 {importCount !== null && <p className="mt-2 text-xs text-neutral-500">Найдено пользовательских хостов: {importCount}</p>}
               </div>
+
+              <AboutCard />
 
               <BackupPanel onImported={loadInitial} notify={notify} />
 

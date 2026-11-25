@@ -50,6 +50,9 @@ export interface TunnelSummary {
   state: TunnelState;
   active_conns: number;
   last_error?: string;
+  rdp_username: string;
+  rdp_domain: string;
+  has_rdp_password: boolean;
 }
 
 export interface TunnelDraft {
@@ -60,6 +63,12 @@ export interface TunnelDraft {
   local_addr: string;
   remote_addr: string;
   auto_start: boolean;
+  /** Вход в RDP: пароль только новый (сохранённый в UI не попадает). */
+  rdp_username?: string;
+  rdp_domain?: string;
+  rdp_password?: string;
+  has_rdp_password?: boolean;
+  rdp_forget_password?: boolean;
 }
 
 export interface ParsedTarget {

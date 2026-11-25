@@ -134,6 +134,26 @@ export namespace app {
 	        this.skipped = source["skipped"];
 	    }
 	}
+	export class RDPCredentialsInput {
+	    tunnel_id: string;
+	    username: string;
+	    domain: string;
+	    password: string;
+	    keep_password: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RDPCredentialsInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tunnel_id = source["tunnel_id"];
+	        this.username = source["username"];
+	        this.domain = source["domain"];
+	        this.password = source["password"];
+	        this.keep_password = source["keep_password"];
+	    }
+	}
 
 }
 
@@ -207,6 +227,9 @@ export namespace db {
 	    local_addr: string;
 	    remote_addr: string;
 	    auto_start: boolean;
+	    rdp_username: string;
+	    rdp_domain: string;
+	    has_rdp_password: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Tunnel(source);
@@ -221,6 +244,9 @@ export namespace db {
 	        this.local_addr = source["local_addr"];
 	        this.remote_addr = source["remote_addr"];
 	        this.auto_start = source["auto_start"];
+	        this.rdp_username = source["rdp_username"];
+	        this.rdp_domain = source["rdp_domain"];
+	        this.has_rdp_password = source["has_rdp_password"];
 	    }
 	}
 

@@ -33,6 +33,8 @@ type backupPayload struct {
 	Keys       []backupKey `json:"keys"`
 	Hosts      []db.Host   `json:"hosts"`
 	Tunnels    []db.Tunnel `json:"tunnels"`
+	// Пароли RDP по ID туннеля (логин и домен лежат в самих туннелях).
+	RDPPasswords map[string]string `json:"rdp_passwords,omitempty"`
 }
 
 // ImportSummary — итог импорта для уведомления в UI.
@@ -117,6 +119,24 @@ func (a *App) buildBackup() ([]byte, error) {
 		crypto.ZeroBytes(privPEM)
 		crypto.ZeroBytes(passphrase)
 	}
+	for _, t := range tunnels {
+		if !t.HasRDPPassword {
+			continue
+		}
+		enc, err := a.store.Tunnels.RDPPasswordEnc(a.ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		pw, err := a.vault.Decrypt(enc)
+		if err != nil {
+			return nil, fmt.Errorf("пароль RDP туннеля %q: %w", t.Name, err)
+		}
+		if p.RDPPasswords == nil {
+			p.RDPPasswords = map[string]string{}
+		}
+		p.RDPPasswords[t.ID] = string(pw)
+		crypto.ZeroBytes(pw)
+	}
 	if p.Hosts == nil {
 		p.Hosts = []db.Host{}
 	}
@@ -159,6 +179,7 @@ func (a *App) ImportBackup(path, password string) (*ImportSummary, error) {
 	for i := range p.Keys {
 		p.Keys[i].PrivateKeyPEM, p.Keys[i].Passphrase = "", ""
 	}
+	p.RDPPasswords = nil
 	a.RefreshHostsStatus()
 	return sum, err
 }
@@ -298,6 +319,14 @@ func (a *App) applyBackup(p *backupPayload) (*ImportSummary, error) {
 		}
 		if err := a.store.Tunnels.Upsert(a.ctx, &t); err != nil {
 			return sum, fmt.Errorf("туннель %q: %w", t.Name, err)
+		}
+		if t.RDPUsername != "" {
+			pw, hasPw := p.RDPPasswords[t.ID]
+			if err := a.SaveRDPCredentials(RDPCredentialsInput{
+				TunnelID: t.ID, Username: t.RDPUsername, Domain: t.RDPDomain, Password: pw, KeepPassword: !hasPw,
+			}); err != nil {
+				return sum, fmt.Errorf("RDP туннеля %q: %w", t.Name, err)
+			}
 		}
 	}
 

@@ -106,6 +106,10 @@ export function SaveHost(arg1) {
   return window['go']['app']['App']['SaveHost'](arg1);
 }
 
+export function SaveRDPCredentials(arg1) {
+  return window['go']['app']['App']['SaveRDPCredentials'](arg1);
+}
+
 export function SaveTunnel(arg1) {
   return window['go']['app']['App']['SaveTunnel'](arg1);
 }

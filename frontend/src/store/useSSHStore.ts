@@ -11,6 +11,7 @@ import {
   OpenRDP,
   RefreshHostsStatus,
   SaveHost,
+  SaveRDPCredentials,
   SaveTunnel,
   StartTunnel,
   StopTunnel,
@@ -300,6 +301,9 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
           local_addr: t.local_addr,
           remote_addr: t.remote_addr ?? '',
           auto_start: t.auto_start,
+          rdp_username: t.rdp_username ?? '',
+          rdp_domain: t.rdp_domain ?? '',
+          has_rdp_password: Boolean(t.has_rdp_password),
           state: (st?.state as TunnelState) ?? (prev.get(t.id)?.state === 'error' ? 'error' : 'stopped'),
           active_conns: st?.active_conns ?? 0,
           last_error: st?.last_error || (st ? undefined : prev.get(t.id)?.last_error),
@@ -313,7 +317,18 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
 
   saveTunnel: async (draft) => {
     // Ошибку пробрасываем в форму, чтобы показать её рядом с полями.
-    await SaveTunnel(db.Tunnel.createFrom({ ...draft, id: draft.id ?? '' }));
+    const { rdp_username, rdp_domain, rdp_password, rdp_forget_password, has_rdp_password, ...tunnel } = draft;
+    const saved = await SaveTunnel(db.Tunnel.createFrom({ ...tunnel, id: draft.id ?? '' }));
+    // Учётные данные RDP сохраняются отдельно: пароль шифруется на бэкенде.
+    if (saved?.id && rdp_username !== undefined) {
+      await SaveRDPCredentials({
+        tunnel_id: saved.id,
+        username: rdp_username,
+        domain: rdp_domain ?? '',
+        password: rdp_password ?? '',
+        keep_password: !rdp_forget_password,
+      });
+    }
     await get().loadTunnels();
   },
 

@@ -174,7 +174,7 @@ export const HostCard: React.FC<HostCardProps> = ({
               onClick={handleRDPClick}
               onDoubleClick={(e) => e.stopPropagation()}
               disabled={rdpPending}
-              title={`Удалённый рабочий стол через туннель «${rdpTunnel.name}»`}
+              title={`Удалённый рабочий стол через туннель «${rdpTunnel.name}»${rdpTunnel.rdp_username ? (rdpTunnel.has_rdp_password ? ` — вход как ${rdpTunnel.rdp_username}` : ` — логин ${rdpTunnel.rdp_username}`) : ''}`}
               className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-black/10 disabled:opacity-60 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
             >
               {rdpPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Monitor className="h-3 w-3" />}

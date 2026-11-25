@@ -56,6 +56,8 @@ export function RunBootstrap(arg1:app.BootstrapInput):Promise<ssh.BootstrapResul
 
 export function SaveHost(arg1:db.Host):Promise<db.Host>;
 
+export function SaveRDPCredentials(arg1:app.RDPCredentialsInput):Promise<void>;
+
 export function SaveTunnel(arg1:db.Tunnel):Promise<db.Tunnel>;
 
 export function SetDefaultKey(arg1:string):Promise<void>;
