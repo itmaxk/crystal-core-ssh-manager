@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeftRight, KeyRound, Pin, Play, Trash2, Upload } from 'lucide-react';
 import { Host, TunnelSummary } from '../types/ssh';
+import { portOf } from './TunnelManager';
 
 const ENV_STRIPE: Record<Host['env_tag'], string> = {
   prod: 'bg-[#E81123]',
@@ -49,6 +50,7 @@ export const HostCard: React.FC<HostCardProps> = ({
 
   const isOffline = pingMs === null;
   const activeTunnel = tunnels.find((t) => t.state === 'active');
+  const failedTunnel = !activeTunnel ? tunnels.find((t) => t.state === 'error') : undefined;
 
   const handleConnectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -138,8 +140,19 @@ export const HostCard: React.FC<HostCardProps> = ({
               className="inline-flex items-center gap-1 rounded-md bg-blue-500/15 px-1.5 py-0.5 font-mono text-[11px] text-blue-700 hover:bg-blue-500/25 dark:text-blue-300"
             >
               <ArrowLeftRight className="h-3 w-3" />
-              {activeTunnel.local_addr.split(':')[1]}
+              {activeTunnel.direction === 'R' ? `↑${portOf(activeTunnel.remote_addr)}` : portOf(activeTunnel.local_addr)}
               {activeTunnel.active_conns > 0 && ` (${activeTunnel.active_conns})`}
+            </button>
+          )}
+          {failedTunnel && (
+            <button
+              type="button"
+              title={failedTunnel.last_error}
+              onClick={(e) => { e.stopPropagation(); onOpenTunnels?.(host.id); }}
+              className="inline-flex items-center gap-1 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-500/25 dark:text-red-300"
+            >
+              <ArrowLeftRight className="h-3 w-3" />
+              Ошибка туннеля
             </button>
           )}
           {host.is_temporary && (

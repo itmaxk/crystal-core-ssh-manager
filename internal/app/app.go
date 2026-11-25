@@ -127,6 +127,7 @@ func (a *App) Startup(ctx context.Context) {
 
 	startGlobalHotkey(bgCtx, a.showAndFocusOmnibar)
 	a.startTray()
+	go a.startAutoTunnels()
 }
 
 func (a *App) DomReady(ctx context.Context) {
@@ -612,24 +613,88 @@ func (a *App) ListTunnels(hostID string) ([]db.Tunnel, error) {
 	return a.store.Tunnels.ListByHost(a.ctx, hostID)
 }
 
+func (a *App) ListAllTunnels() ([]db.Tunnel, error) {
+	if err := a.ready(); err != nil {
+		return nil, err
+	}
+	return a.store.Tunnels.ListAll(a.ctx)
+}
+
+func (a *App) DeleteTunnel(tunnelID string) error {
+	if err := a.ready(); err != nil {
+		return err
+	}
+	a.StopTunnel(tunnelID)
+	return a.store.Tunnels.Delete(a.ctx, tunnelID)
+}
+
+// startAutoTunnels поднимает туннели с auto_start после запуска приложения.
+func (a *App) startAutoTunnels() {
+	tunnels, err := a.store.Tunnels.ListAll(a.ctx)
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "list tunnels for auto-start: %v", err)
+		return
+	}
+	for _, t := range tunnels {
+		if !t.AutoStart {
+			continue
+		}
+		if err := a.StartTunnel(t.ID, t.HostID); err != nil {
+			runtime.LogWarningf(a.ctx, "auto-start tunnel %s: %v", t.Name, err)
+			runtime.EventsEmit(a.ctx, "tunnel:status", sshsvc.TunnelStatus{
+				TunnelID: t.ID, State: sshsvc.StateError, LastError: err.Error(),
+			})
+		}
+	}
+}
+
 func (a *App) SaveTunnel(t db.Tunnel) (*db.Tunnel, error) {
 	if err := a.ready(); err != nil {
 		return nil, err
 	}
+	t.Name = strings.TrimSpace(t.Name)
+	t.LocalAddr = strings.TrimSpace(t.LocalAddr)
+	t.RemoteAddr = strings.TrimSpace(t.RemoteAddr)
+	if t.Name == "" {
+		return nil, errors.New("tunnel name is required")
+	}
+	if err := sshsvc.ValidateTunnelAddr(t.LocalAddr); err != nil {
+		return nil, fmt.Errorf("local: %w", err)
+	}
 	switch t.Direction {
 	case "L", "R":
-		if strings.TrimSpace(t.RemoteAddr) == "" {
-			return nil, errors.New("remote address is required for L/R tunnels")
+		if err := sshsvc.ValidateTunnelAddr(t.RemoteAddr); err != nil {
+			return nil, fmt.Errorf("remote: %w", err)
 		}
 	case "D":
+		t.RemoteAddr = ""
 	default:
 		return nil, fmt.Errorf("invalid tunnel direction %q", t.Direction)
 	}
-	if strings.TrimSpace(t.LocalAddr) == "" {
-		return nil, errors.New("local address is required")
+
+	if t.ID != "" {
+		// host_id существующего туннеля не меняется (Upsert его не обновляет).
+		existing, err := a.store.Tunnels.GetByID(a.ctx, t.ID)
+		if err != nil {
+			return nil, fmt.Errorf("load tunnel: %w", err)
+		}
+		t.HostID = existing.HostID
+	} else if _, err := a.store.Hosts.GetByID(a.ctx, t.HostID); err != nil {
+		return nil, fmt.Errorf("load host: %w", err)
+	}
+
+	// Изменённый работающий туннель перезапускаем с новыми параметрами.
+	wasRunning := t.ID != "" && a.tunnels.IsRunning(t.ID)
+	if wasRunning {
+		a.tunnels.Stop(t.ID)
 	}
 	if err := a.store.Tunnels.Upsert(a.ctx, &t); err != nil {
 		return nil, err
+	}
+	if wasRunning {
+		if err := a.StartTunnel(t.ID, t.HostID); err != nil {
+			return &t, fmt.Errorf("saved, but restart failed: %w", err)
+		}
 	}
 	return &t, nil
 }

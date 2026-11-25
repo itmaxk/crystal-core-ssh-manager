@@ -22,12 +22,30 @@ export interface Host {
   last_connected_at?: string | null;
 }
 
+export type TunnelDirection = 'L' | 'R' | 'D';
+export type TunnelState = 'stopped' | 'connecting' | 'active' | 'reconnecting' | 'error';
+
 export interface TunnelSummary {
   id: string;
+  host_id: string;
   name: string;
+  direction: TunnelDirection;
   local_addr: string;
-  state: 'stopped' | 'connecting' | 'active' | 'reconnecting' | 'error';
+  remote_addr: string;
+  auto_start: boolean;
+  state: TunnelState;
   active_conns: number;
+  last_error?: string;
+}
+
+export interface TunnelDraft {
+  id?: string;
+  host_id: string;
+  name: string;
+  direction: TunnelDirection;
+  local_addr: string;
+  remote_addr: string;
+  auto_start: boolean;
 }
 
 export interface ParsedTarget {

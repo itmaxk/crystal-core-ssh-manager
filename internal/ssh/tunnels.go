@@ -226,7 +226,7 @@ func (m *TunnelManager) serveLocal(ctx context.Context, client *ssh.Client, loca
 	}
 	return m.acceptLoop(ctx, ln, func(localConn net.Conn) {
 		defer localConn.Close()
-		remoteConn, err := client.Dial("tcp", remoteAddr)
+		remoteConn, err := client.Dial("tcp", NormalizeListenAddr(remoteAddr))
 		if err != nil {
 			return
 		}
@@ -236,7 +236,7 @@ func (m *TunnelManager) serveLocal(ctx context.Context, client *ssh.Client, loca
 }
 
 func (m *TunnelManager) serveRemote(ctx context.Context, client *ssh.Client, remoteAddr, localAddr, id string, rt *runningTunnel) error {
-	ln, err := client.Listen("tcp", remoteAddr)
+	ln, err := client.Listen("tcp", NormalizeListenAddr(remoteAddr))
 	if err != nil {
 		return fmt.Errorf("remote listen %s: %w", remoteAddr, err)
 	}
@@ -429,6 +429,30 @@ func (m *TunnelManager) statusLocked(id string, rt *runningTunnel) TunnelStatus 
 		ActiveConns: rt.activeConns.Load(),
 		LastError:   rt.lastError,
 	}
+}
+
+// IsRunning сообщает, запущен ли туннель (в любом состоянии, кроме остановленного).
+func (m *TunnelManager) IsRunning(tunnelID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.tunnels[tunnelID]
+	return ok
+}
+
+// ValidateTunnelAddr проверяет адрес вида "port", ":port" или "host:port".
+func ValidateTunnelAddr(addr string) error {
+	host, port, err := net.SplitHostPort(NormalizeListenAddr(addr))
+	if err != nil {
+		return fmt.Errorf("invalid address %q: expected port or host:port", addr)
+	}
+	if host != "" && ValidateHostname(host) != nil {
+		return fmt.Errorf("invalid host in %q", addr)
+	}
+	p, err := strconv.Atoi(port)
+	if err != nil || p < 1 || p > 65535 {
+		return fmt.Errorf("invalid port in %q", addr)
+	}
+	return nil
 }
 
 // NormalizeListenAddr превращает "8080" / ":8080" в "127.0.0.1:8080", чтобы

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Clock, Columns2, KeyRound, Minus, RefreshCw, Server, Settings, Square, Terminal, X,
+  ArrowLeftRight, Clock, Columns2, KeyRound, Minus, RefreshCw, Server, Settings, Square, Terminal, X,
 } from 'lucide-react';
 import {
   EventsOn, OnFileDrop, OnFileDropOff, Quit, WindowMinimise, WindowToggleMaximise,
@@ -12,9 +12,10 @@ import { Omnibar } from './components/Omnibar';
 import { HostCard } from './components/HostCard';
 import { BootstrapModal } from './components/BootstrapModal';
 import { KeyVault } from './components/KeyVault';
+import { TunnelManager } from './components/TunnelManager';
 import { ParsedTarget } from './types/ssh';
 
-type Section = 'hosts' | 'temporary' | 'keys' | 'settings';
+type Section = 'hosts' | 'temporary' | 'tunnels' | 'keys' | 'settings';
 
 const DRAG_STYLE = { '--wails-draggable': 'drag' } as React.CSSProperties;
 const NO_DRAG_STYLE = { '--wails-draggable': 'no-drag' } as React.CSSProperties;
@@ -24,11 +25,13 @@ export function App() {
     hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, envFilter,
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
     connectHosts, quickConnect, saveAndConnectHost, pinHost, deleteHost, uploadFiles,
+    saveTunnel, deleteTunnel, startTunnel, stopTunnel,
     notice, notify, dismissNotice,
     onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
   } = useSSHStore();
 
   const [activeSection, setActiveSection] = useState<Section>('hosts');
+  const [tunnelHostFilter, setTunnelHostFilter] = useState('');
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
   const [bootstrapTarget, setBootstrapTarget] = useState<ParsedTarget | null>(null);
   const [bootstrapKeyId, setBootstrapKeyId] = useState<string>('');
@@ -39,7 +42,7 @@ export function App() {
     loadInitial();
     const offPing = EventsOn('host:ping', (res: any) => onPingEvent(res.host_id, res.online, res.latency_ms));
     const offSession = EventsOn('session:update', (msg: any) => onSessionEvent(msg.type, msg.session_id, msg.host_id));
-    const offTunnel = EventsOn('tunnel:status', (st: any) => onTunnelStatusEvent(st.tunnel_id, st.state, st.active_conns));
+    const offTunnel = EventsOn('tunnel:status', (st: any) => onTunnelStatusEvent(st.tunnel_id, st.state, st.active_conns, st.last_error));
     const offSftp = EventsOn('sftp:progress', (p: any) => onUploadProgressEvent(p.host_id, p.percent, p.done, Boolean(p.error)));
     const offAgent = EventsOn('agent:status', (st: any) => setAgentAvailable(Boolean(st?.available)));
 
@@ -90,6 +93,8 @@ export function App() {
     for (const hostId of Object.values(sessions)) counts[hostId] = (counts[hostId] || 0) + 1;
     return counts;
   }, [sessions]);
+
+  const tunnelsCount = useMemo(() => Object.values(tunnelsByHost).flat().length, [tunnelsByHost]);
 
   const activeTunnelsCount = useMemo(
     () => Object.values(tunnelsByHost).flat().filter((t) => t.state === 'active').length,
@@ -143,13 +148,29 @@ export function App() {
             <SidebarItem icon={<Server className="h-4 w-4" />} label="Все серверы" active={activeSection === 'hosts'} count={hosts.filter((h) => !h.is_temporary).length} onClick={() => setActiveSection('hosts')} />
             <SidebarItem icon={<Clock className="h-4 w-4" />} label="Временные" active={activeSection === 'temporary'} count={hosts.filter((h) => h.is_temporary).length} onClick={() => setActiveSection('temporary')} />
             <div className="my-2 border-t border-black/10 dark:border-white/10" />
+            <SidebarItem icon={<ArrowLeftRight className="h-4 w-4" />} label="Туннели" active={activeSection === 'tunnels'} count={tunnelsCount} onClick={() => { setTunnelHostFilter(''); setActiveSection('tunnels'); }} />
             <SidebarItem icon={<KeyRound className="h-4 w-4" />} label="Ключи" active={activeSection === 'keys'} count={keys.length} onClick={() => setActiveSection('keys')} />
           </nav>
-          <SidebarItem icon={<Settings className="h-4 w-4" />} label="Настройки" active={activeSection === 'settings'} onClick={() => setActiveSection('settings')} />
+          <div className="text-xs font-medium">
+            <SidebarItem icon={<Settings className="h-4 w-4" />} label="Настройки" active={activeSection === 'settings'} onClick={() => setActiveSection('settings')} />
+          </div>
         </aside>
 
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {activeSection === 'keys' && <KeyVault keys={keys} onRefresh={loadInitial} />}
+
+          {activeSection === 'tunnels' && (
+            <TunnelManager
+              hosts={hosts}
+              tunnelsByHost={tunnelsByHost}
+              hostFilter={tunnelHostFilter}
+              onHostFilterChange={setTunnelHostFilter}
+              onSave={saveTunnel}
+              onDelete={deleteTunnel}
+              onStart={startTunnel}
+              onStop={stopTunnel}
+            />
+          )}
 
           {activeSection === 'settings' && (
             <div className="max-w-xl space-y-4 p-5">
@@ -202,6 +223,7 @@ export function App() {
                     onSelect={toggleSelectHost}
                     onConnect={(id) => connectHosts([id], 'tabs')}
                     onPinTemporary={pinHost}
+                    onOpenTunnels={(id) => { setTunnelHostFilter(id); setActiveSection('tunnels'); }}
                     onDelete={deleteHost}
                   />
                 ))}
@@ -231,7 +253,7 @@ export function App() {
         </div>
         <div className="flex items-center gap-4">
           <span>Активных сессий: {Object.keys(sessions).length}</span>
-          <span>Туннелей: {activeTunnelsCount}</span>
+          <span>Активных туннелей: {activeTunnelsCount}</span>
         </div>
       </footer>
 

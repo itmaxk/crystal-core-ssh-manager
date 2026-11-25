@@ -2,17 +2,23 @@ import { create } from 'zustand';
 import {
   ConnectHosts,
   DeleteHost,
+  DeleteTunnel,
   GetHostStatuses,
   GetTunnelStatuses,
   ListHosts,
+  ListAllTunnels,
   ListKeys,
-  ListTunnels,
   RefreshHostsStatus,
   SaveHost,
+  SaveTunnel,
+  StartTunnel,
+  StopTunnel,
   UploadFileToHost,
 } from '../../wailsjs/go/app/App';
 import { db } from '../../wailsjs/go/models';
-import { EnvTag, Host, ParsedTarget, SSHKey, TunnelSummary } from '../types/ssh';
+import {
+  EnvTag, Host, ParsedTarget, SSHKey, TunnelDirection, TunnelDraft, TunnelState, TunnelSummary,
+} from '../types/ssh';
 
 export const errorMessage = (err: unknown): string =>
   err instanceof Error ? err.message : String(err);
@@ -59,7 +65,12 @@ interface SSHStore {
   }) => Promise<void>;
   onPingEvent: (hostId: string, online: boolean, latencyMs?: number | null) => void;
   onSessionEvent: (type: 'session_started' | 'session_ended', sessionId: string, hostId: string) => void;
-  onTunnelStatusEvent: (tunnelId: string, state: TunnelSummary['state'], activeConns: number) => void;
+  onTunnelStatusEvent: (tunnelId: string, state: TunnelState, activeConns: number, lastError?: string) => void;
+  loadTunnels: () => Promise<void>;
+  saveTunnel: (draft: TunnelDraft) => Promise<void>;
+  deleteTunnel: (tunnelId: string) => Promise<void>;
+  startTunnel: (tunnelId: string, hostId: string) => Promise<void>;
+  stopTunnel: (tunnelId: string) => Promise<void>;
   onUploadProgressEvent: (hostId: string, percent: number, done: boolean, hasError: boolean) => void;
   setAgentAvailable: (available: boolean) => void;
 }
@@ -117,40 +128,24 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
   loadInitial: async () => {
     set({ isLoading: true });
     try {
-      const [hosts, keys, statuses, tunnelStatuses] = await Promise.all([
+      const [hosts, keys, statuses] = await Promise.all([
         ListHosts(),
         ListKeys(),
         GetHostStatuses(),
-        GetTunnelStatuses(),
       ]);
-      const tunnelState = new Map((tunnelStatuses || []).map((t) => [t.tunnel_id, t]));
 
       const pings: Record<string, number | null> = {};
       for (const [id, st] of Object.entries(statuses || {})) {
         pings[id] = st.online ? (st.latency_ms ?? 0) : null;
       }
 
-      const tunnelsByHost: Record<string, TunnelSummary[]> = {};
-      await Promise.all(
-        (hosts || []).map(async (h) => {
-          const list = await ListTunnels(h.id);
-          tunnelsByHost[h.id] = (list || []).map((t) => ({
-            id: t.id,
-            name: t.name,
-            local_addr: t.local_addr,
-            state: (tunnelState.get(t.id)?.state as TunnelSummary['state']) ?? 'stopped',
-            active_conns: tunnelState.get(t.id)?.active_conns ?? 0,
-          }));
-        })
-      );
-
       set({
         hosts: (hosts || []) as Host[],
         keys: (keys || []) as SSHKey[],
         pings,
-        tunnelsByHost,
         isLoading: false,
       });
+      await get().loadTunnels();
     } catch (err) {
       set({ isLoading: false });
       get().notify('error', `Не удалось загрузить данные: ${errorMessage(err)}`);
@@ -255,16 +250,78 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
       return { sessions: next };
     }),
 
-  onTunnelStatusEvent: (tunnelId, tunnelState, activeConns) =>
+  onTunnelStatusEvent: (tunnelId, tunnelState, activeConns, lastError) =>
     set((state) => {
       const next = { ...state.tunnelsByHost };
       for (const hostId of Object.keys(next)) {
         next[hostId] = next[hostId].map((t) =>
-          t.id === tunnelId ? { ...t, state: tunnelState, active_conns: activeConns } : t
+          t.id === tunnelId
+            ? { ...t, state: tunnelState, active_conns: activeConns, last_error: lastError || undefined }
+            : t
         );
       }
       return { tunnelsByHost: next };
     }),
+
+  loadTunnels: async () => {
+    try {
+      const [list, statuses] = await Promise.all([ListAllTunnels(), GetTunnelStatuses()]);
+      // Сохраняем последнюю ошибку остановленных туннелей, которых нет в статусах backend.
+      const prev = new Map(Object.values(get().tunnelsByHost).flat().map((t) => [t.id, t]));
+      const live = new Map((statuses || []).map((s) => [s.tunnel_id, s]));
+      const tunnelsByHost: Record<string, TunnelSummary[]> = {};
+      for (const t of list || []) {
+        const st = live.get(t.id);
+        (tunnelsByHost[t.host_id] ||= []).push({
+          id: t.id,
+          host_id: t.host_id,
+          name: t.name,
+          direction: t.direction as TunnelDirection,
+          local_addr: t.local_addr,
+          remote_addr: t.remote_addr ?? '',
+          auto_start: t.auto_start,
+          state: (st?.state as TunnelState) ?? (prev.get(t.id)?.state === 'error' ? 'error' : 'stopped'),
+          active_conns: st?.active_conns ?? 0,
+          last_error: st?.last_error || (st ? undefined : prev.get(t.id)?.last_error),
+        });
+      }
+      set({ tunnelsByHost });
+    } catch (err) {
+      get().notify('error', `Не удалось загрузить туннели: ${errorMessage(err)}`);
+    }
+  },
+
+  saveTunnel: async (draft) => {
+    // Ошибку пробрасываем в форму, чтобы показать её рядом с полями.
+    await SaveTunnel(db.Tunnel.createFrom({ ...draft, id: draft.id ?? '' }));
+    await get().loadTunnels();
+  },
+
+  deleteTunnel: async (tunnelId) => {
+    try {
+      await DeleteTunnel(tunnelId);
+      await get().loadTunnels();
+    } catch (err) {
+      get().notify('error', `Не удалось удалить туннель: ${errorMessage(err)}`);
+    }
+  },
+
+  startTunnel: async (tunnelId, hostId) => {
+    try {
+      await StartTunnel(tunnelId, hostId);
+    } catch (err) {
+      get().onTunnelStatusEvent(tunnelId, 'error', 0, errorMessage(err));
+      get().notify('error', `Туннель не запущен: ${errorMessage(err)}`);
+    }
+  },
+
+  stopTunnel: async (tunnelId) => {
+    try {
+      await StopTunnel(tunnelId);
+    } catch (err) {
+      get().notify('error', `Не удалось остановить туннель: ${errorMessage(err)}`);
+    }
+  },
 
   onUploadProgressEvent: (hostId, percent, done, hasError) =>
     set((state) => ({

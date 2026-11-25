@@ -52,6 +52,37 @@ func (r *TunnelsRepo) ListByHost(ctx context.Context, hostID string) ([]Tunnel, 
 	if err != nil {
 		return nil, err
 	}
+	return scanTunnels(rows)
+}
+
+func (r *TunnelsRepo) ListAll(ctx context.Context) ([]Tunnel, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, host_id, name, direction, local_addr, remote_addr, auto_start
+		FROM tunnels ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	return scanTunnels(rows)
+}
+
+func (r *TunnelsRepo) GetByID(ctx context.Context, id string) (*Tunnel, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, host_id, name, direction, local_addr, remote_addr, auto_start
+		FROM tunnels WHERE id = ?`, id)
+	if err != nil {
+		return nil, err
+	}
+	list, err := scanTunnels(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return &list[0], nil
+}
+
+func scanTunnels(rows *sql.Rows) ([]Tunnel, error) {
 	defer rows.Close()
 
 	var list []Tunnel

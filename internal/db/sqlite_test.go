@@ -56,3 +56,45 @@ func TestOpenMigrateAndCRUD(t *testing.T) {
 }
 
 func mkdirAll(dir string) error { return os.MkdirAll(dir, 0700) }
+
+func TestTunnelsRepo(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "vault.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+
+	h := &Host{Name: "db", Hostname: "10.0.0.1", Username: "root"}
+	if err := store.Hosts.Upsert(ctx, h); err != nil {
+		t.Fatal(err)
+	}
+	tn := &Tunnel{HostID: h.ID, Name: "pg", Direction: "L", LocalAddr: "15432", RemoteAddr: "localhost:5432", AutoStart: true}
+	if err := store.Tunnels.Upsert(ctx, tn); err != nil {
+		t.Fatal(err)
+	}
+	socks := &Tunnel{HostID: h.ID, Name: "socks", Direction: "D", LocalAddr: "1080"}
+	if err := store.Tunnels.Upsert(ctx, socks); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := store.Tunnels.GetByID(ctx, tn.ID)
+	if err != nil || got.RemoteAddr != "localhost:5432" || !got.AutoStart {
+		t.Fatalf("GetByID = %+v, %v", got, err)
+	}
+	if _, err := store.Tunnels.GetByID(ctx, "missing"); err == nil {
+		t.Error("GetByID(missing) should fail")
+	}
+	all, err := store.Tunnels.ListAll(ctx)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("ListAll = %d, %v", len(all), err)
+	}
+
+	// Удаление хоста каскадно удаляет его туннели.
+	if err := store.Hosts.Delete(ctx, h.ID); err != nil {
+		t.Fatal(err)
+	}
+	if all, _ = store.Tunnels.ListAll(ctx); len(all) != 0 {
+		t.Errorf("tunnels not cascaded on host delete: %d left", len(all))
+	}
+}

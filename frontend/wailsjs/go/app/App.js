@@ -22,6 +22,10 @@ export function DeleteKey(arg1) {
   return window['go']['app']['App']['DeleteKey'](arg1);
 }
 
+export function DeleteTunnel(arg1) {
+  return window['go']['app']['App']['DeleteTunnel'](arg1);
+}
+
 export function GenerateKey(arg1, arg2, arg3) {
   return window['go']['app']['App']['GenerateKey'](arg1, arg2, arg3);
 }
@@ -36,6 +40,10 @@ export function GetTunnelStatuses() {
 
 export function ImportKey(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['ImportKey'](arg1, arg2, arg3, arg4);
+}
+
+export function ListAllTunnels() {
+  return window['go']['app']['App']['ListAllTunnels']();
 }
 
 export function ListHosts() {

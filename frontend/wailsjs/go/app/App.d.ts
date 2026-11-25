@@ -14,6 +14,8 @@ export function DeleteHost(arg1:string):Promise<void>;
 
 export function DeleteKey(arg1:string):Promise<void>;
 
+export function DeleteTunnel(arg1:string):Promise<void>;
+
 export function GenerateKey(arg1:string,arg2:string,arg3:boolean):Promise<db.SSHKey>;
 
 export function GetHostStatuses():Promise<Record<string, ssh.PingResult>>;
@@ -21,6 +23,8 @@ export function GetHostStatuses():Promise<Record<string, ssh.PingResult>>;
 export function GetTunnelStatuses():Promise<Array<ssh.TunnelStatus>>;
 
 export function ImportKey(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<db.SSHKey>;
+
+export function ListAllTunnels():Promise<Array<db.Tunnel>>;
 
 export function ListHosts():Promise<Array<db.Host>>;
 

@@ -73,6 +73,19 @@ func TestExportFollowsSymlink(t *testing.T) {
 	}
 }
 
+func TestValidateTunnelAddr(t *testing.T) {
+	for _, ok := range []string{"8080", ":1080", "localhost:5432", "10.0.0.5:22", "[::1]:80"} {
+		if err := ValidateTunnelAddr(ok); err != nil {
+			t.Errorf("ValidateTunnelAddr(%q) = %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "abc", "host:", "host:0", "host:70000", "-oX:22"} {
+		if err := ValidateTunnelAddr(bad); err == nil {
+			t.Errorf("ValidateTunnelAddr(%q) = nil, want error", bad)
+		}
+	}
+}
+
 func TestNormalizeListenAddr(t *testing.T) {
 	cases := map[string]string{"8080": "127.0.0.1:8080", ":1080": "127.0.0.1:1080", "0.0.0.0:80": "0.0.0.0:80"}
 	for in, want := range cases {
