@@ -16,10 +16,24 @@ export interface Host {
   port: number;
   username: string;
   key_id?: string | null;
+  jump_host_id?: string | null;
   env_tag: EnvTag;
   tab_color: string;
   is_temporary: boolean;
   last_connected_at?: string | null;
+}
+
+export interface HostDraft {
+  id?: string;
+  name: string;
+  hostname: string;
+  port: number;
+  username: string;
+  key_id: string;
+  jump_host_id: string;
+  env_tag: EnvTag;
+  tab_color: string;
+  is_temporary: boolean;
 }
 
 export type TunnelDirection = 'L' | 'R' | 'D';

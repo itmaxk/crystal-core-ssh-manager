@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeftRight, Clock, Columns2, KeyRound, Minus, RefreshCw, Server, Settings, Square, Terminal, X,
+  ArrowLeftRight, Clock, Columns2, KeyRound, Minus, Plus, RefreshCw, Server, Settings, Square, Terminal, X,
 } from 'lucide-react';
 import {
   EventsOn, OnFileDrop, OnFileDropOff, Quit, WindowMinimise, WindowToggleMaximise,
@@ -13,7 +13,8 @@ import { HostCard } from './components/HostCard';
 import { BootstrapModal } from './components/BootstrapModal';
 import { KeyVault } from './components/KeyVault';
 import { TunnelManager } from './components/TunnelManager';
-import { ParsedTarget } from './types/ssh';
+import { HostForm, hostToDraft, newHostDraft } from './components/HostForm';
+import { HostDraft, ParsedTarget } from './types/ssh';
 
 type Section = 'hosts' | 'temporary' | 'tunnels' | 'keys' | 'settings';
 
@@ -24,7 +25,7 @@ export function App() {
   const {
     hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, envFilter,
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
-    connectHosts, quickConnect, saveAndConnectHost, pinHost, deleteHost, uploadFiles,
+    connectHosts, quickConnect, saveAndConnectHost, saveHost, pinHost, deleteHost, uploadFiles,
     saveTunnel, deleteTunnel, startTunnel, stopTunnel,
     notice, notify, dismissNotice,
     onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
@@ -37,6 +38,7 @@ export function App() {
   const [bootstrapKeyId, setBootstrapKeyId] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [importCount, setImportCount] = useState<number | null>(null);
+  const [hostDraft, setHostDraft] = useState<HostDraft | null>(null);
 
   useEffect(() => {
     loadInitial();
@@ -196,7 +198,7 @@ export function App() {
 
           {(activeSection === 'hosts' || activeSection === 'temporary') && (
             <>
-              <div className="flex items-center justify-between px-5 py-3">
+              <div className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="flex items-center gap-1.5">
                   {(['all', 'prod', 'stage', 'dev', 'infra'] as const).map((tag) => (
                     <button key={tag} onClick={() => setEnvFilter(tag)} className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition ${envFilter === tag ? 'bg-blue-600 text-white' : 'bg-black/5 text-neutral-600 hover:bg-black/10 dark:bg-white/5 dark:text-neutral-300'}`}>
@@ -204,9 +206,17 @@ export function App() {
                     </button>
                   ))}
                 </div>
-                <button onClick={refreshPings} className="flex items-center gap-1.5 rounded-md bg-black/5 px-2.5 py-1 text-xs text-neutral-600 hover:bg-black/10 dark:bg-white/5 dark:text-neutral-300">
-                  <RefreshCw className="h-3.5 w-3.5" /> Обновить пинг
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={refreshPings} title="Обновить пинг" aria-label="Обновить пинг" className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-black/5 px-2.5 py-1 text-xs text-neutral-600 hover:bg-black/10 dark:bg-white/5 dark:text-neutral-300">
+                    <RefreshCw className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Обновить пинг</span>
+                  </button>
+                  <button
+                    onClick={() => setHostDraft({ ...newHostDraft(keys), is_temporary: activeSection === 'temporary' })}
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Добавить сервер
+                  </button>
+                </div>
               </div>
 
               <div className="grid flex-1 grid-cols-1 content-start gap-3 overflow-y-auto px-5 pb-20 sm:grid-cols-2 lg:grid-cols-3">
@@ -224,6 +234,7 @@ export function App() {
                     onConnect={(id) => connectHosts([id], 'tabs')}
                     onPinTemporary={pinHost}
                     onOpenTunnels={(id) => { setTunnelHostFilter(id); setActiveSection('tunnels'); }}
+                    onEdit={() => setHostDraft(hostToDraft(host))}
                     onDelete={deleteHost}
                   />
                 ))}
@@ -269,6 +280,21 @@ export function App() {
         >
           {notice.text}
         </div>
+      )}
+
+      {hostDraft && (
+        <HostForm
+          initial={hostDraft}
+          hosts={hosts}
+          keys={keys}
+          runningTunnels={(hostDraft.id ? tunnelsByHost[hostDraft.id] ?? [] : []).filter((t) => t.state !== 'stopped' && t.state !== 'error').length}
+          onCancel={() => setHostDraft(null)}
+          onSubmit={async (draft) => {
+            await saveHost(draft);
+            setHostDraft(null);
+            notify('info', draft.id ? `Сервер «${draft.name}» сохранён` : `Сервер «${draft.name}» добавлен`);
+          }}
+        />
       )}
 
       <BootstrapModal

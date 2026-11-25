@@ -290,7 +290,7 @@ const TunnelMapping: React.FC<{ tunnel: Pick<TunnelSummary, 'direction' | 'local
   );
 };
 
-const inputClass = (invalid: boolean) =>
+export const inputClass = (invalid: boolean) =>
   `w-full rounded-lg border bg-black/[0.03] px-3 py-1.5 font-mono text-sm outline-none focus:border-blue-500 dark:bg-white/5 dark:text-white ${
     invalid ? 'border-red-500/60' : 'border-black/10 dark:border-white/10'
   }`;

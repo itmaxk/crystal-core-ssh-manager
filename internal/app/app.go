@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -279,16 +280,84 @@ func (a *App) SaveHost(h db.Host) (*db.Host, error) {
 	if h.JumpHostID != nil && (*h.JumpHostID == "" || *h.JumpHostID == h.ID) {
 		h.JumpHostID = nil
 	}
+	if h.KeyID != nil {
+		if _, err := a.store.Keys.GetByID(a.ctx, *h.KeyID); err != nil {
+			return nil, fmt.Errorf("SSH-ключ не найден: %w", err)
+		}
+	}
+	if h.JumpHostID != nil {
+		jump, err := a.store.Hosts.GetByID(a.ctx, *h.JumpHostID)
+		if err != nil {
+			return nil, fmt.Errorf("jump-хост не найден: %w", err)
+		}
+		if h.ID != "" && jump.JumpHostID != nil && *jump.JumpHostID == h.ID {
+			return nil, fmt.Errorf("циклическая цепочка: %q уже подключается через этот сервер", jump.Name)
+		}
+	}
+
+	var prev *db.Host
+	if h.ID != "" {
+		existing, err := a.store.Hosts.GetByID(a.ctx, h.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("load host: %w", err)
+		}
+		prev = existing
+	}
 	if err := a.store.Hosts.Upsert(a.ctx, &h); err != nil {
 		return nil, err
 	}
 	a.RefreshHostsStatus()
+	if prev != nil && connectionChanged(prev, &h) {
+		a.restartHostTunnels(h.ID)
+	}
 	return a.store.Hosts.GetByID(a.ctx, h.ID)
+}
+
+// connectionChanged: изменились параметры, с которыми туннели держат SSH-сессию.
+func connectionChanged(a, b *db.Host) bool {
+	return a.Hostname != b.Hostname || a.Port != b.Port || a.Username != b.Username ||
+		ptrValue(a.KeyID) != ptrValue(b.KeyID)
+}
+
+func ptrValue(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// restartHostTunnels переподключает работающие туннели хоста с новыми параметрами.
+func (a *App) restartHostTunnels(hostID string) {
+	if a.tunnels == nil {
+		return
+	}
+	tunnels, err := a.store.Tunnels.ListByHost(a.ctx, hostID)
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "list tunnels for restart: %v", err)
+		return
+	}
+	for _, t := range tunnels {
+		if !a.tunnels.IsRunning(t.ID) {
+			continue
+		}
+		a.tunnels.Stop(t.ID)
+		if err := a.StartTunnel(t.ID, hostID); err != nil {
+			runtime.EventsEmit(a.ctx, "tunnel:status", sshsvc.TunnelStatus{
+				TunnelID: t.ID, State: sshsvc.StateError, LastError: err.Error(),
+			})
+		}
+	}
 }
 
 func (a *App) DeleteHost(hostID string) error {
 	if err := a.ready(); err != nil {
 		return err
+	}
+	// Туннели удаляются каскадно в БД, но работающие нужно остановить явно.
+	if tunnels, err := a.store.Tunnels.ListByHost(a.ctx, hostID); err == nil {
+		for _, t := range tunnels {
+			a.StopTunnel(t.ID)
+		}
 	}
 	return a.store.Hosts.Delete(a.ctx, hostID)
 }

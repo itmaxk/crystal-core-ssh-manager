@@ -17,13 +17,13 @@ import {
 } from '../../wailsjs/go/app/App';
 import { db } from '../../wailsjs/go/models';
 import {
-  EnvTag, Host, ParsedTarget, SSHKey, TunnelDirection, TunnelDraft, TunnelState, TunnelSummary,
+  EnvTag, Host, HostDraft, ParsedTarget, SSHKey, TunnelDirection, TunnelDraft, TunnelState, TunnelSummary,
 } from '../types/ssh';
 
 export const errorMessage = (err: unknown): string =>
   err instanceof Error ? err.message : String(err);
 
-const ENV_TAB_COLOR: Record<EnvTag, string> = {
+export const ENV_TAB_COLOR: Record<EnvTag, string> = {
   prod: '#E81123',
   stage: '#FFB900',
   dev: '#107C10',
@@ -46,6 +46,7 @@ interface SSHStore {
   notify: (kind: 'error' | 'info', text: string) => void;
   dismissNotice: () => void;
   pinHost: (hostId: string) => Promise<void>;
+  saveHost: (draft: HostDraft) => Promise<void>;
   deleteHost: (hostId: string) => Promise<void>;
   uploadFiles: (hostId: string, paths: string[]) => Promise<void>;
   loadInitial: () => Promise<void>;
@@ -100,6 +101,17 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
     } catch (err) {
       get().notify('error', `Не удалось закрепить сервер: ${errorMessage(err)}`);
     }
+  },
+
+  saveHost: async (draft) => {
+    // Ошибку пробрасываем в форму, чтобы показать её рядом с полями.
+    await SaveHost(db.Host.createFrom({
+      ...draft,
+      id: draft.id ?? '',
+      key_id: draft.key_id || null,
+      jump_host_id: draft.jump_host_id || null,
+    }));
+    await get().loadInitial();
   },
 
   deleteHost: async (hostId) => {

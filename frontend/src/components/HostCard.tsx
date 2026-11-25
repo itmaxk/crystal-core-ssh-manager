@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, KeyRound, Pin, Play, Trash2, Upload } from 'lucide-react';
+import { ArrowLeftRight, KeyRound, Pencil, Pin, Play, Trash2, Upload } from 'lucide-react';
 import { Host, TunnelSummary } from '../types/ssh';
 import { portOf } from './TunnelManager';
 
@@ -23,6 +23,7 @@ interface HostCardProps {
   onConnect: (hostId: string) => void;
   onPinTemporary?: (hostId: string) => void;
   onOpenTunnels?: (hostId: string) => void;
+  onEdit?: (hostId: string) => void;
   onDelete?: (hostId: string) => void;
 }
 
@@ -43,6 +44,7 @@ export const HostCard: React.FC<HostCardProps> = ({
   onConnect,
   onPinTemporary,
   onOpenTunnels,
+  onEdit,
   onDelete,
 }) => {
   const [prodConfirmPending, setProdConfirmPending] = useState(false);
@@ -122,13 +124,13 @@ export const HostCard: React.FC<HostCardProps> = ({
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {keyName && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:bg-white/10 dark:text-neutral-300">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:bg-white/10 dark:text-neutral-300">
               <KeyRound className="h-3 w-3 text-amber-500" />
               {keyName}
             </span>
           )}
           {activeSessions > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {activeSessions} {activeSessions === 1 ? 'сессия' : 'сессии'}
             </span>
@@ -137,7 +139,7 @@ export const HostCard: React.FC<HostCardProps> = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenTunnels?.(host.id); }}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-500/15 px-1.5 py-0.5 font-mono text-[11px] text-blue-700 hover:bg-blue-500/25 dark:text-blue-300"
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-blue-500/15 px-1.5 py-0.5 font-mono text-[11px] text-blue-700 hover:bg-blue-500/25 dark:text-blue-300"
             >
               <ArrowLeftRight className="h-3 w-3" />
               {activeTunnel.direction === 'R' ? `↑${portOf(activeTunnel.remote_addr)}` : portOf(activeTunnel.local_addr)}
@@ -149,7 +151,7 @@ export const HostCard: React.FC<HostCardProps> = ({
               type="button"
               title={failedTunnel.last_error}
               onClick={(e) => { e.stopPropagation(); onOpenTunnels?.(host.id); }}
-              className="inline-flex items-center gap-1 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-500/25 dark:text-red-300"
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-500/25 dark:text-red-300"
             >
               <ArrowLeftRight className="h-3 w-3" />
               Ошибка туннеля
@@ -159,7 +161,7 @@ export const HostCard: React.FC<HostCardProps> = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onPinTemporary?.(host.id); }}
-              className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
             >
               <Pin className="h-3 w-3" />
               Закрепить
@@ -168,6 +170,18 @@ export const HostCard: React.FC<HostCardProps> = ({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onEdit(host.id); }}
+            onDoubleClick={(e) => e.stopPropagation()}
+            title="Изменить сервер"
+            aria-label="Изменить сервер"
+            className="rounded-md px-1.5 py-1 text-neutral-400 opacity-0 transition hover:bg-black/5 hover:text-neutral-700 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
         {onDelete && (
           <button
             type="button"
