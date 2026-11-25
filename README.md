@@ -94,14 +94,14 @@ git tag v1.0.1 && git push origin v1.0.1
 
 Workflow собирает Windows/macOS/Linux, прогоняет `go test` и публикует GitHub Release с архивами и `SHA256SUMS.txt`. Перед тегом обновите `info.productVersion` в `wails.json`.
 
-Пересобрать существующий релиз (например, чтобы добавить сборку macOS): `gh workflow run release.yml --ref v1.2.0` — артефакты загрузятся в релиз с заменой.
+Пересобрать существующий релиз (например, чтобы добавить сборку macOS): `gh workflow run release.yml --ref v1.3.0` — артефакты загрузятся в релиз с заменой.
 
 ### Ручная сборка macOS
 
 Сборка под macOS требует Cocoa/WebKit из macOS SDK, поэтому кросс-компиляция с Windows/Linux не поддерживается. Если GitHub Actions недоступен, соберите на Mac (нужны Xcode Command Line Tools, Go 1.26 и Wails CLI 2.17.1) и дозагрузите архив в существующий релиз:
 
 ```bash
-TAG=v1.2.0
+TAG=v1.3.0
 git checkout "$TAG"
 wails build -clean -platform darwin/universal
 cd build/bin
