@@ -1,0 +1,17 @@
+# Wails / Go build output
+build/bin/
+build/windows/
+build/darwin/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/package.json.md5
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

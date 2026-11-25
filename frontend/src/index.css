@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Подсветка карточки при нативном drag-and-drop файлов (Wails OnFileDrop). */
+.host-card.wails-drop-target-active .drop-overlay {
+  display: flex;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}

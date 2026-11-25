@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="crystalBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="crystalFacet" x1="256" y1="32" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <polygon points="256,28 432,138 432,374 256,484 80,374 80,138" fill="url(#crystalBg)" stroke="#7DD3FC" stroke-width="10" stroke-linejoin="round"/>
+  <polygon points="256,28 432,138 256,210 80,138" fill="url(#crystalFacet)"/>
+  <polygon points="256,210 432,138 432,374 256,484" fill="#0F172A" fill-opacity="0.22"/>
+  <line x1="256" y1="28" x2="256" y2="210" stroke="#BAE6FD" stroke-opacity="0.5" stroke-width="4"/>
+  <polygon points="256,156 364,222 364,334 256,396 148,334 148,222" fill="#0B1120" fill-opacity="0.72" stroke="#38BDF8" stroke-opacity="0.55" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M196 248 L242 280 L196 312" stroke="#38BDF8" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="262" y1="312" x2="318" y2="312" stroke="#E0F2FE" stroke-width="18" stroke-linecap="round"/>
+</svg>
