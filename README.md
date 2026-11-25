@@ -22,7 +22,7 @@
 | :--- | :--- | :--- |
 | Windows 10/11 x64 | `crystal-core-ssh-manager-windows-amd64.zip` | Распакуйте `CrystalCoreSSHManager.exe` и `ssh-launcher-cli.exe` в одну папку. Нужны Windows Terminal и WebView2. |
 | macOS (Intel + Apple Silicon) | `crystal-core-ssh-manager-macos-universal.zip` | Сборка не подписана: после распаковки выполните `xattr -dr com.apple.quarantine CrystalCoreSSHManager.app`. |
-| Linux x64 | `crystal-core-ssh-manager-linux-amd64.tar.gz` | Нужны `libwebkit2gtk-4.1-0`, `libgtk-3-0` и Secret Service (GNOME Keyring / KWallet) для мастер-ключа. |
+| Linux x64 | `crystal-core-ssh-manager-linux-amd64.tar.gz` | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+), `libwebkit2gtk-4.1-0`, `libgtk-3-0` и Secret Service (GNOME Keyring / KWallet) для мастер-ключа. |
 
 Контрольные суммы — в `SHA256SUMS.txt` в каждом релизе.
 
@@ -74,6 +74,8 @@ git tag v1.0.1 && git push origin v1.0.1
 ```
 
 Workflow собирает Windows/macOS/Linux, прогоняет `go test` и публикует GitHub Release с архивами и `SHA256SUMS.txt`. Перед тегом обновите `info.productVersion` в `wails.json`.
+
+Пересобрать существующий релиз (например, чтобы добавить сборку macOS): `gh workflow run release.yml --ref v1.0.0` — артефакты загрузятся в релиз с заменой.
 
 ## Ограничения
 
