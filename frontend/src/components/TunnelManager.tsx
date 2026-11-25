@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowLeftRight, ArrowRight, Globe, Loader2, Pencil, Play, Plus, Server, Square, Trash2, X, Zap,
+  AlertTriangle, ArrowLeftRight, ArrowRight, Globe, Loader2, Monitor, Pencil, Play, Plus, Server, Square, Trash2, X, Zap,
 } from 'lucide-react';
 import { Host, TunnelDirection, TunnelDraft, TunnelSummary } from '../types/ssh';
 import { errorMessage } from '../store/useSSHStore';
+import { useEscape } from '../hooks/useEscape';
 
 interface TunnelManagerProps {
   hosts: Host[];
@@ -14,6 +15,7 @@ interface TunnelManagerProps {
   onDelete: (tunnelId: string) => void;
   onStart: (tunnelId: string, hostId: string) => void;
   onStop: (tunnelId: string) => void;
+  onOpenRDP: (tunnelId: string) => Promise<void>;
 }
 
 const DIRECTIONS: { value: TunnelDirection; label: string; flag: string; hint: string }[] = [
@@ -49,10 +51,14 @@ const validateAddr = (addr: string): string | null => {
   return null;
 };
 
+// RDP открывается через локальный туннель на порт 3389 (на сервере или за ним).
+export const isRDPTunnel = (t: Pick<TunnelSummary, 'direction' | 'remote_addr'>) =>
+  t.direction === 'L' && portOf(t.remote_addr) === '3389';
+
 const isRunning = (t: TunnelSummary) => t.state !== 'stopped' && t.state !== 'error';
 
 export const TunnelManager: React.FC<TunnelManagerProps> = ({
-  hosts, tunnelsByHost, hostFilter, onHostFilterChange, onSave, onDelete, onStart, onStop,
+  hosts, tunnelsByHost, hostFilter, onHostFilterChange, onSave, onDelete, onStart, onStop, onOpenRDP,
 }) => {
   const [editing, setEditing] = useState<TunnelDraft | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -167,6 +173,7 @@ export const TunnelManager: React.FC<TunnelManagerProps> = ({
                       local_addr: t.local_addr, remote_addr: t.remote_addr, auto_start: t.auto_start,
                     })}
                     onDelete={() => handleDelete(t.id)}
+                    onOpenRDP={isRDPTunnel(t) ? () => onOpenRDP(t.id) : undefined}
                   />
                 ))}
               </div>
@@ -197,8 +204,15 @@ const TunnelRow: React.FC<{
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
-}> = ({ tunnel: t, confirmDelete, onToggle, onEdit, onDelete }) => {
+  onOpenRDP?: () => Promise<void>;
+}> = ({ tunnel: t, confirmDelete, onToggle, onEdit, onDelete, onOpenRDP }) => {
   const meta = STATE_META[t.state];
+  const [rdpPending, setRdpPending] = useState(false);
+  const openRDP = async () => {
+    if (!onOpenRDP || rdpPending) return;
+    setRdpPending(true);
+    try { await onOpenRDP(); } finally { setRdpPending(false); }
+  };
   const running = isRunning(t);
   const dir = DIRECTIONS.find((d) => d.value === t.direction);
 
@@ -231,6 +245,18 @@ const TunnelRow: React.FC<{
             {meta.label}
             {t.state === 'active' && t.active_conns > 0 && ` · ${t.active_conns} соед.`}
           </span>
+          {onOpenRDP && (
+            <button
+              type="button"
+              onClick={openRDP}
+              disabled={rdpPending}
+              title={running ? 'Открыть удалённый рабочий стол' : 'Запустить туннель и открыть удалённый рабочий стол'}
+              className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-black/5 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-black/10 disabled:opacity-60 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
+            >
+              {rdpPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Monitor className="h-3 w-3" />}
+              RDP
+            </button>
+          )}
           <button
             type="button"
             onClick={onToggle}
@@ -309,11 +335,7 @@ const TunnelForm: React.FC<{
   const isEdit = Boolean(initial.id);
   const host = hosts.find((h) => h.id === draft.host_id);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  useEscape(onCancel);
 
   const set = <K extends keyof TunnelDraft>(key: K, value: TunnelDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -437,6 +459,21 @@ const TunnelForm: React.FC<{
             <p className="mt-1 text-[11px] text-neutral-500">{DIRECTIONS.find((d) => d.value === draft.direction)?.hint}</p>
           </div>
 
+          {draft.direction === 'L' && !isRDPTunnel(draft) && (
+            <button
+              type="button"
+              onClick={() => setDraft((d) => ({
+                ...d,
+                name: d.name.trim() ? d.name : 'RDP',
+                local_addr: d.local_addr.trim() ? d.local_addr : '13389',
+                remote_addr: 'localhost:3389',
+              }))}
+              className="-mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-black/10 px-2 py-1 text-[11px] font-medium text-neutral-700 hover:bg-black/5 dark:border-white/10 dark:text-neutral-300 dark:hover:bg-white/10"
+            >
+              <Monitor className="h-3 w-3" /> Шаблон: удалённый рабочий стол (RDP, порт 3389)
+            </button>
+          )}
+
           <div className={`grid items-start gap-2 ${fields.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1'}`}>
             {fields.map((f, i) => (
               <React.Fragment key={f.key}>
@@ -465,6 +502,12 @@ const TunnelForm: React.FC<{
               <>Только порт — слушать на 127.0.0.1. Укажите <span className="font-mono">0.0.0.0:порт</span>, чтобы открыть доступ из сети.</>
             )}
           </p>
+
+          {isRDPTunnel(draft) && (
+            <p className="-mt-1.5 rounded-lg bg-blue-500/10 px-3 py-2 text-[11px] text-blue-800 dark:text-blue-200">
+              Кнопка «RDP» в списке поднимет туннель и откроет удалённый рабочий стол. Если Windows-машина находится за сервером, укажите её адрес вместо <span className="font-mono">localhost</span>, например <span className="font-mono">10.0.0.5:3389</span>.
+            </p>
+          )}
 
           {sshPreview && (
             <div className="rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/5">

@@ -431,6 +431,17 @@ func (m *TunnelManager) statusLocked(id string, rt *runningTunnel) TunnelStatus 
 	}
 }
 
+// Status возвращает текущее состояние туннеля; false — туннель не запущен.
+func (m *TunnelManager) Status(tunnelID string) (TunnelStatus, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rt, ok := m.tunnels[tunnelID]
+	if !ok {
+		return TunnelStatus{TunnelID: tunnelID, State: StateStopped}, false
+	}
+	return m.statusLocked(tunnelID, rt), true
+}
+
 // IsRunning сообщает, запущен ли туннель (в любом состоянии, кроме остановленного).
 func (m *TunnelManager) IsRunning(tunnelID string) bool {
 	m.mu.Lock()

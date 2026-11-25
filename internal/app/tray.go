@@ -7,7 +7,6 @@ import (
 	goruntime "runtime"
 
 	"fyne.io/systray"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Windows-трей принимает только ICO, Linux (StatusNotifierItem) — PNG.
@@ -17,6 +16,8 @@ var (
 	//go:embed icons/tray.png
 	trayIconPNG []byte
 )
+
+const trayAvailable = true
 
 func (a *App) startTray() {
 	icon := trayIconPNG
@@ -31,8 +32,10 @@ func (a *App) startTray() {
 			systray.SetIcon(icon)
 			systray.SetTitle("Crystal-Core SSH Manager")
 			systray.SetTooltip("Crystal-Core SSH Manager (Ctrl+Alt+S)")
+			// Клик по иконке (Windows) открывает окно; меню — по правой кнопке.
+			systray.SetOnTapped(a.showAndFocusOmnibar)
 
-			mOpen := systray.AddMenuItem("Открыть Omnibar", "Показать окно (Ctrl+Alt+S)")
+			mOpen := systray.AddMenuItem("Открыть", "Показать окно (Ctrl+Alt+S)")
 			mRefresh := systray.AddMenuItem("Обновить пинг", "Проверить доступность серверов")
 			systray.AddSeparator()
 			mQuit := systray.AddMenuItem("Выход", "Закрыть Crystal-Core SSH Manager")
@@ -46,7 +49,7 @@ func (a *App) startTray() {
 						a.RefreshHostsStatus()
 					case <-mQuit.ClickedCh:
 						systray.Quit()
-						runtime.Quit(a.ctx)
+						a.ExitApp()
 						return
 					}
 				}

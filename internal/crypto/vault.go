@@ -28,7 +28,12 @@ func NewVault() (*Vault, error) {
 		return nil, fmt.Errorf("init master key: %w", err)
 	}
 	defer ZeroBytes(masterKey)
+	return NewVaultFromKey(masterKey)
+}
 
+// NewVaultFromKey создаёт хранилище с заданным 32-байтным ключом (для тестов
+// и инструментов; приложение использует ключ из системного keyring).
+func NewVaultFromKey(masterKey []byte) (*Vault, error) {
 	block, err := aes.NewCipher(masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("create aes cipher: %w", err)

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { EnvTag, Host, HostDraft, SSHKey } from '../types/ssh';
 import { ENV_TAB_COLOR, errorMessage } from '../store/useSSHStore';
 import { inputClass } from './TunnelManager';
+import { useEscape } from '../hooks/useEscape';
 
 const ENV_OPTIONS: { value: EnvTag; label: string }[] = [
   { value: 'prod', label: 'prod' },
@@ -62,11 +63,7 @@ export const HostForm: React.FC<HostFormProps> = ({ initial, hosts, keys, runnin
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(initial.id);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  useEscape(onCancel);
 
   const set = <K extends keyof HostDraft>(key: K, value: HostDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 

@@ -11,6 +11,7 @@ import (
 	goruntime "runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,8 @@ type App struct {
 	sessions   map[string]string
 
 	initErr error
+
+	quitting atomic.Bool
 
 	bootstrapMu     sync.Mutex
 	bootstrapCancel context.CancelFunc
@@ -85,6 +88,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.store = store
 	a.vault = vault
 	a.pubKeyDir = filepath.Join(filepath.Dir(dbPath), db.PubKeyDirName)
+	a.syncPubKeys()
 
 	if l, err := terminal.DefaultLauncher(); err == nil {
 		a.launcher = l
@@ -196,8 +200,31 @@ func (a *App) hostWithKey(hostID string) (*db.Host, []byte, []byte, error) {
 	return host, privPEM, passphrase, nil
 }
 
+// BeforeClose: при наличии трея закрытие окна (крестик, Alt+F4) только
+// прячет его, а UI показывает подсказку, что выйти можно из меню трея.
+// Настоящий выход идёт через ExitApp, который выставляет quitting.
 func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
-	return false
+	if a.quitting.Load() || !trayAvailable {
+		return false
+	}
+	runtime.EventsEmit(ctx, "ui:close_requested", nil)
+	return true
+}
+
+// TrayAvailable сообщает UI, есть ли иконка в трее (на macOS её нет).
+func (a *App) TrayAvailable() bool { return trayAvailable }
+
+// HideToTray прячет окно; приложение продолжает работать в трее.
+func (a *App) HideToTray() {
+	if trayAvailable {
+		runtime.WindowHide(a.ctx)
+	}
+}
+
+// ExitApp полностью завершает приложение (туннели останавливаются).
+func (a *App) ExitApp() {
+	a.quitting.Store(true)
+	runtime.Quit(a.ctx)
 }
 
 func (a *App) Shutdown(ctx context.Context) {
@@ -472,7 +499,7 @@ func (a *App) AddKey(in AddKeyInput) (*db.SSHKey, error) {
 	}
 	if err := a.ensureKeyReady(k.ID); err != nil {
 		// Ключ сохранён; агент может быть не запущен — загрузим при подключении.
-		runtime.LogWarningf(a.ctx, "load key %s into ssh-agent: %v", k.Name, err)
+		a.warnf("load key %s into ssh-agent: %v", k.Name, err)
 	}
 	return k, nil
 }
@@ -542,9 +569,37 @@ func (a *App) DeleteKey(keyID string) error {
 	}
 	_ = os.Remove(filepath.Join(a.pubKeyDir, keyID+".pub"))
 	if err := agent.RemoveKey(k.PublicKey); err != nil {
-		runtime.LogWarningf(a.ctx, "remove key %s from ssh-agent: %v", k.Name, err)
+		a.warnf("remove key %s from ssh-agent: %v", k.Name, err)
 	}
 	return nil
+}
+
+// writePubKey кладёт публичную часть ключа в pubkeys/<id>.pub: на неё
+// ссылаются IdentityFile в ~/.ssh/config и аргумент -i системного ssh.
+func (a *App) writePubKey(k *db.SSHKey) error {
+	if a.pubKeyDir == "" {
+		return nil
+	}
+	pubPath := filepath.Join(a.pubKeyDir, k.ID+".pub")
+	if err := os.WriteFile(pubPath, []byte(strings.TrimSpace(k.PublicKey)+"\n"), 0600); err != nil {
+		return fmt.Errorf("write pubkey cache: %w", err)
+	}
+	return nil
+}
+
+// syncPubKeys восстанавливает .pub-файлы всех ключей (например, после
+// импорта бэкапа или для ключей, которыми ещё ни разу не подключались).
+func (a *App) syncPubKeys() {
+	keys, err := a.store.Keys.List(a.ctx)
+	if err != nil {
+		a.warnf("list keys for pubkey sync: %v", err)
+		return
+	}
+	for i := range keys {
+		if err := a.writePubKey(&keys[i]); err != nil {
+			a.warnf("%v", err)
+		}
+	}
 }
 
 func (a *App) ensureKeyReady(keyID string) error {
@@ -552,9 +607,8 @@ func (a *App) ensureKeyReady(keyID string) error {
 	if err != nil {
 		return err
 	}
-	pubPath := filepath.Join(a.pubKeyDir, k.ID+".pub")
-	if err := os.WriteFile(pubPath, []byte(k.PublicKey+"\n"), 0600); err != nil {
-		return fmt.Errorf("write pubkey cache: %w", err)
+	if err := a.writePubKey(k); err != nil {
+		return err
 	}
 	if loaded, err := agent.ListFingerprints(); err == nil && loaded[k.Fingerprint] {
 		return nil
@@ -645,7 +699,7 @@ func (a *App) RunBootstrap(in BootstrapInput) (*sshsvc.BootstrapResult, error) {
 	res, err := sshsvc.RunBootstrap(ctx, req)
 	if err == nil {
 		if loadErr := a.ensureKeyReady(k.ID); loadErr != nil {
-			runtime.LogWarningf(a.ctx, "load key into ssh-agent: %v", loadErr)
+			a.warnf("load key into ssh-agent: %v", loadErr)
 		}
 	}
 	return res, err
@@ -709,7 +763,7 @@ func (a *App) startAutoTunnels() {
 			continue
 		}
 		if err := a.StartTunnel(t.ID, t.HostID); err != nil {
-			runtime.LogWarningf(a.ctx, "auto-start tunnel %s: %v", t.Name, err)
+			a.warnf("auto-start tunnel %s: %v", t.Name, err)
 			runtime.EventsEmit(a.ctx, "tunnel:status", sshsvc.TunnelStatus{
 				TunnelID: t.ID, State: sshsvc.StateError, LastError: err.Error(),
 			})
@@ -851,6 +905,7 @@ func (a *App) SyncSSHConfig() error {
 		return err
 	}
 	var syncList []sshsvc.SyncHost
+	readyKeys := map[string]bool{}
 	for _, h := range hosts {
 		if h.IsTemporary {
 			continue
@@ -863,6 +918,15 @@ func (a *App) SyncSSHConfig() error {
 			Username: h.Username,
 		}
 		if h.KeyID != nil && *h.KeyID != "" {
+			// IdentityFile указывает на .pub, а приватная часть берётся из
+			// ssh-agent: создаём файл и загружаем ключ в агент заранее, иначе
+			// VS Code / git не смогут войти, пока сервер не открыт из приложения.
+			if !readyKeys[*h.KeyID] {
+				if err := a.ensureKeyReady(*h.KeyID); err != nil {
+					a.warnf("prepare key %s for ssh config: %v", *h.KeyID, err)
+				}
+				readyKeys[*h.KeyID] = true
+			}
 			item.PubKeyPath = filepath.Join(a.pubKeyDir, *h.KeyID+".pub")
 		}
 		if h.JumpHostID != nil {

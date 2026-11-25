@@ -8,6 +8,7 @@ import {
   ListHosts,
   ListAllTunnels,
   ListKeys,
+  OpenRDP,
   RefreshHostsStatus,
   SaveHost,
   SaveTunnel,
@@ -72,6 +73,7 @@ interface SSHStore {
   deleteTunnel: (tunnelId: string) => Promise<void>;
   startTunnel: (tunnelId: string, hostId: string) => Promise<void>;
   stopTunnel: (tunnelId: string) => Promise<void>;
+  openRDP: (tunnelId: string) => Promise<void>;
   onUploadProgressEvent: (hostId: string, percent: number, done: boolean, hasError: boolean) => void;
   setAgentAvailable: (available: boolean) => void;
 }
@@ -180,7 +182,8 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
       };
     }),
 
-  clearSelection: () => set({ selectedHostIds: [] }),
+  // Без лишней перерисовки: Escape вызывает это на каждое нажатие.
+  clearSelection: () => { if (get().selectedHostIds.length) set({ selectedHostIds: [] }); },
 
   connectHosts: async (hostIds, mode) => {
     if (hostIds.length === 0) return;
@@ -332,6 +335,14 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
       await StopTunnel(tunnelId);
     } catch (err) {
       get().notify('error', `Не удалось остановить туннель: ${errorMessage(err)}`);
+    }
+  },
+
+  openRDP: async (tunnelId) => {
+    try {
+      await OpenRDP(tunnelId);
+    } catch (err) {
+      get().notify('error', `RDP: ${errorMessage(err)}`);
     }
   },
 

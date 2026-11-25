@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,12 +13,22 @@ import (
 
 func newTestApp(t *testing.T) *App {
 	t.Helper()
+	// Не трогаем ssh-agent разработчика: AddKey загружает ключи в агент.
+	t.Setenv("SSH_AUTH_SOCK", "")
 	store, err := db.Open(filepath.Join(t.TempDir(), "vault.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
-	return &App{ctx: context.Background(), store: store, vault: &crypto.Vault{}}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatal(err)
+	}
+	vault, err := crypto.NewVaultFromKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &App{ctx: context.Background(), store: store, vault: vault}
 }
 
 func strPtr(s string) *string { return &s }

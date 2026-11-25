@@ -26,6 +26,14 @@ export function DeleteTunnel(arg1) {
   return window['go']['app']['App']['DeleteTunnel'](arg1);
 }
 
+export function ExitApp() {
+  return window['go']['app']['App']['ExitApp']();
+}
+
+export function ExportBackup(arg1) {
+  return window['go']['app']['App']['ExportBackup'](arg1);
+}
+
 export function GenerateKey(arg1, arg2, arg3) {
   return window['go']['app']['App']['GenerateKey'](arg1, arg2, arg3);
 }
@@ -36,6 +44,14 @@ export function GetHostStatuses() {
 
 export function GetTunnelStatuses() {
   return window['go']['app']['App']['GetTunnelStatuses']();
+}
+
+export function HideToTray() {
+  return window['go']['app']['App']['HideToTray']();
+}
+
+export function ImportBackup(arg1, arg2) {
+  return window['go']['app']['App']['ImportBackup'](arg1, arg2);
 }
 
 export function ImportKey(arg1, arg2, arg3, arg4) {
@@ -56,6 +72,14 @@ export function ListKeys() {
 
 export function ListTunnels(arg1) {
   return window['go']['app']['App']['ListTunnels'](arg1);
+}
+
+export function OpenRDP(arg1) {
+  return window['go']['app']['App']['OpenRDP'](arg1);
+}
+
+export function PickBackupFile() {
+  return window['go']['app']['App']['PickBackupFile']();
 }
 
 export function PreviewImportSSHConfig() {
@@ -96,6 +120,10 @@ export function StopTunnel(arg1) {
 
 export function SyncSSHConfig() {
   return window['go']['app']['App']['SyncSSHConfig']();
+}
+
+export function TrayAvailable() {
+  return window['go']['app']['App']['TrayAvailable']();
 }
 
 export function UploadFileToHost(arg1, arg2, arg3) {

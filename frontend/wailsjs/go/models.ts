@@ -44,6 +44,30 @@ export namespace app {
 	        this.key_id = source["key_id"];
 	    }
 	}
+	export class ImportSummary {
+	    keys_added: number;
+	    keys_existing: number;
+	    hosts_added: number;
+	    hosts_updated: number;
+	    tunnels_added: number;
+	    tunnels_updated: number;
+	    skipped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.keys_added = source["keys_added"];
+	        this.keys_existing = source["keys_existing"];
+	        this.hosts_added = source["hosts_added"];
+	        this.hosts_updated = source["hosts_updated"];
+	        this.tunnels_added = source["tunnels_added"];
+	        this.tunnels_updated = source["tunnels_updated"];
+	        this.skipped = source["skipped"];
+	    }
+	}
 
 }
 

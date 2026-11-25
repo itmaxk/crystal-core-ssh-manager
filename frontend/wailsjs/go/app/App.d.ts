@@ -16,11 +16,19 @@ export function DeleteKey(arg1:string):Promise<void>;
 
 export function DeleteTunnel(arg1:string):Promise<void>;
 
+export function ExitApp():Promise<void>;
+
+export function ExportBackup(arg1:string):Promise<string>;
+
 export function GenerateKey(arg1:string,arg2:string,arg3:boolean):Promise<db.SSHKey>;
 
 export function GetHostStatuses():Promise<Record<string, ssh.PingResult>>;
 
 export function GetTunnelStatuses():Promise<Array<ssh.TunnelStatus>>;
+
+export function HideToTray():Promise<void>;
+
+export function ImportBackup(arg1:string,arg2:string):Promise<app.ImportSummary>;
 
 export function ImportKey(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<db.SSHKey>;
 
@@ -31,6 +39,10 @@ export function ListHosts():Promise<Array<db.Host>>;
 export function ListKeys():Promise<Array<db.SSHKey>>;
 
 export function ListTunnels(arg1:string):Promise<Array<db.Tunnel>>;
+
+export function OpenRDP(arg1:string):Promise<void>;
+
+export function PickBackupFile():Promise<string>;
 
 export function PreviewImportSSHConfig():Promise<Array<ssh.ImportedHost>>;
 
@@ -51,5 +63,7 @@ export function StartTunnel(arg1:string,arg2:string):Promise<void>;
 export function StopTunnel(arg1:string):Promise<void>;
 
 export function SyncSSHConfig():Promise<void>;
+
+export function TrayAvailable():Promise<boolean>;
 
 export function UploadFileToHost(arg1:string,arg2:string,arg3:string):Promise<string>;

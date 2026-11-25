@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeftRight, Clock, Columns2, KeyRound, Minus, Plus, RefreshCw, Server, Settings, Square, Terminal, X,
 } from 'lucide-react';
 import {
-  EventsOn, OnFileDrop, OnFileDropOff, Quit, WindowMinimise, WindowToggleMaximise,
+  EventsOn, OnFileDrop, OnFileDropOff, WindowMinimise, WindowToggleMaximise,
 } from '../wailsjs/runtime/runtime';
-import { PreviewImportSSHConfig, SyncSSHConfig } from '../wailsjs/go/app/App';
+import {
+  ExitApp, HideToTray, PreviewImportSSHConfig, SyncSSHConfig, TrayAvailable,
+} from '../wailsjs/go/app/App';
 import { errorMessage, useSSHStore } from './store/useSSHStore';
 import { CrystalLogo } from './components/CrystalLogo';
 import { Omnibar } from './components/Omnibar';
@@ -14,6 +16,8 @@ import { BootstrapModal } from './components/BootstrapModal';
 import { KeyVault } from './components/KeyVault';
 import { TunnelManager } from './components/TunnelManager';
 import { HostForm, hostToDraft, newHostDraft } from './components/HostForm';
+import { BackupPanel } from './components/BackupPanel';
+import { CloseToTrayDialog, isCloseHintHidden, setCloseHintHidden } from './components/CloseToTrayDialog';
 import { HostDraft, ParsedTarget } from './types/ssh';
 
 type Section = 'hosts' | 'temporary' | 'tunnels' | 'keys' | 'settings';
@@ -26,7 +30,7 @@ export function App() {
     hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, envFilter,
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
     connectHosts, quickConnect, saveAndConnectHost, saveHost, pinHost, deleteHost, uploadFiles,
-    saveTunnel, deleteTunnel, startTunnel, stopTunnel,
+    saveTunnel, deleteTunnel, startTunnel, stopTunnel, openRDP,
     notice, notify, dismissNotice,
     onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
   } = useSSHStore();
@@ -39,6 +43,18 @@ export function App() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [importCount, setImportCount] = useState<number | null>(null);
   const [hostDraft, setHostDraft] = useState<HostDraft | null>(null);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [trayAvailable, setTrayAvailable] = useState(false);
+  const [closeHintHidden, setCloseHintHiddenState] = useState(isCloseHintHidden);
+
+  // Крестик и Alt+F4 (через BeforeClose → ui:close_requested) прячут окно в трей.
+  const requestClose = useCallback(async () => {
+    let tray = false;
+    try { tray = await TrayAvailable(); } catch { /* backend недоступен — выходим */ }
+    if (!tray) { ExitApp(); return; }
+    if (isCloseHintHidden()) { HideToTray(); return; }
+    setCloseDialogOpen(true);
+  }, []);
 
   useEffect(() => {
     loadInitial();
@@ -47,6 +63,8 @@ export function App() {
     const offTunnel = EventsOn('tunnel:status', (st: any) => onTunnelStatusEvent(st.tunnel_id, st.state, st.active_conns, st.last_error));
     const offSftp = EventsOn('sftp:progress', (p: any) => onUploadProgressEvent(p.host_id, p.percent, p.done, Boolean(p.error)));
     const offAgent = EventsOn('agent:status', (st: any) => setAgentAvailable(Boolean(st?.available)));
+    const offClose = EventsOn('ui:close_requested', () => { requestClose(); });
+    TrayAvailable().then(setTrayAvailable).catch(() => setTrayAvailable(false));
 
     // Quick SFTP Dropzone: Wails отдаёт реальные пути файлов и координаты drop.
     OnFileDrop((x, y, paths) => {
@@ -59,7 +77,7 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      offPing(); offSession(); offTunnel(); offSftp(); offAgent();
+      offPing(); offSession(); offTunnel(); offSftp(); offAgent(); offClose();
       OnFileDropOff();
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -140,7 +158,7 @@ export function App() {
         <div style={NO_DRAG_STYLE} className="flex items-center gap-1">
           <button onClick={WindowMinimise} className="rounded-md p-1.5 text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10"><Minus className="h-3.5 w-3.5" /></button>
           <button onClick={WindowToggleMaximise} className="rounded-md p-1.5 text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10"><Square className="h-3 w-3" /></button>
-          <button onClick={Quit} className="rounded-md p-1.5 text-neutral-500 hover:bg-red-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+          <button onClick={requestClose} title={trayAvailable ? 'Свернуть в трей' : 'Закрыть'} aria-label={trayAvailable ? 'Свернуть в трей' : 'Закрыть'} className="rounded-md p-1.5 text-neutral-500 hover:bg-red-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
         </div>
       </header>
 
@@ -171,11 +189,12 @@ export function App() {
               onDelete={deleteTunnel}
               onStart={startTunnel}
               onStop={stopTunnel}
+              onOpenRDP={openRDP}
             />
           )}
 
           {activeSection === 'settings' && (
-            <div className="max-w-xl space-y-4 p-5">
+            <div className="min-h-0 max-w-xl flex-1 space-y-4 overflow-y-auto p-5">
               <h1 className="text-base font-semibold">Настройки</h1>
               <div className="rounded-xl border border-black/10 bg-white/65 p-4 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/60">
                 <div className="text-sm font-medium">Синхронизация с ~/.ssh/config</div>
@@ -193,6 +212,25 @@ export function App() {
                 {syncStatus && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{syncStatus}</p>}
                 {importCount !== null && <p className="mt-2 text-xs text-neutral-500">Найдено пользовательских хостов: {importCount}</p>}
               </div>
+
+              <BackupPanel onImported={loadInitial} notify={notify} />
+
+              {trayAvailable && (
+                <div className="rounded-xl border border-black/10 bg-white/65 p-4 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/60">
+                  <div className="text-sm font-medium">Закрытие окна</div>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Крестик сворачивает приложение в трей — туннели продолжают работать. Полностью выйти можно через «Выход» в меню значка в трее.
+                  </p>
+                  <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={!closeHintHidden}
+                      onChange={(e) => { setCloseHintHidden(!e.target.checked); setCloseHintHiddenState(!e.target.checked); }}
+                    />
+                    Показывать подсказку при закрытии
+                  </label>
+                </div>
+              )}
             </div>
           )}
 
@@ -235,6 +273,7 @@ export function App() {
                     onPinTemporary={pinHost}
                     onOpenTunnels={(id) => { setTunnelHostFilter(id); setActiveSection('tunnels'); }}
                     onEdit={() => setHostDraft(hostToDraft(host))}
+                    onOpenRDP={openRDP}
                     onDelete={deleteHost}
                   />
                 ))}
@@ -280,6 +319,14 @@ export function App() {
         >
           {notice.text}
         </div>
+      )}
+
+      {closeDialogOpen && (
+        <CloseToTrayDialog
+          onCancel={() => setCloseDialogOpen(false)}
+          onExit={() => { setCloseDialogOpen(false); ExitApp(); }}
+          onHide={() => { setCloseDialogOpen(false); setCloseHintHiddenState(isCloseHintHidden()); HideToTray(); }}
+        />
       )}
 
       {hostDraft && (

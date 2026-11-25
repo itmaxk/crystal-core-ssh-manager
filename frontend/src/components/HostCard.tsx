@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, KeyRound, Pencil, Pin, Play, Trash2, Upload } from 'lucide-react';
+import { ArrowLeftRight, KeyRound, Loader2, Monitor, Pencil, Pin, Play, Trash2, Upload } from 'lucide-react';
 import { Host, TunnelSummary } from '../types/ssh';
-import { portOf } from './TunnelManager';
+import { isRDPTunnel, portOf } from './TunnelManager';
 
 const ENV_STRIPE: Record<Host['env_tag'], string> = {
   prod: 'bg-[#E81123]',
@@ -24,6 +24,7 @@ interface HostCardProps {
   onPinTemporary?: (hostId: string) => void;
   onOpenTunnels?: (hostId: string) => void;
   onEdit?: (hostId: string) => void;
+  onOpenRDP?: (tunnelId: string) => Promise<void>;
   onDelete?: (hostId: string) => void;
 }
 
@@ -45,6 +46,7 @@ export const HostCard: React.FC<HostCardProps> = ({
   onPinTemporary,
   onOpenTunnels,
   onEdit,
+  onOpenRDP,
   onDelete,
 }) => {
   const [prodConfirmPending, setProdConfirmPending] = useState(false);
@@ -53,6 +55,15 @@ export const HostCard: React.FC<HostCardProps> = ({
   const isOffline = pingMs === null;
   const activeTunnel = tunnels.find((t) => t.state === 'active');
   const failedTunnel = !activeTunnel ? tunnels.find((t) => t.state === 'error') : undefined;
+  const rdpTunnel = tunnels.find(isRDPTunnel);
+  const [rdpPending, setRdpPending] = useState(false);
+
+  const handleRDPClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!rdpTunnel || !onOpenRDP || rdpPending) return;
+    setRdpPending(true);
+    try { await onOpenRDP(rdpTunnel.id); } finally { setRdpPending(false); }
+  };
 
   const handleConnectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,8 +132,8 @@ export const HostCard: React.FC<HostCardProps> = ({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {keyName && (
             <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:bg-white/10 dark:text-neutral-300">
               <KeyRound className="h-3 w-3 text-amber-500" />
@@ -157,6 +168,19 @@ export const HostCard: React.FC<HostCardProps> = ({
               Ошибка туннеля
             </button>
           )}
+          {rdpTunnel && onOpenRDP && (
+            <button
+              type="button"
+              onClick={handleRDPClick}
+              onDoubleClick={(e) => e.stopPropagation()}
+              disabled={rdpPending}
+              title={`Удалённый рабочий стол через туннель «${rdpTunnel.name}»`}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-black/10 disabled:opacity-60 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/15"
+            >
+              {rdpPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Monitor className="h-3 w-3" />}
+              RDP
+            </button>
+          )}
           {host.is_temporary && (
             <button
               type="button"
@@ -169,7 +193,7 @@ export const HostCard: React.FC<HostCardProps> = ({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
         {onEdit && (
           <button
             type="button"
