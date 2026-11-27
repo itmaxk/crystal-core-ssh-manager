@@ -82,7 +82,11 @@ func (l *MacOSLauncher) launchAppleTerminal(exePath string, sessions []SessionSp
 // Go-шный %q не является shell-quoting ($ и ` внутри "..." раскрываются),
 // поэтому используем одинарные кавычки POSIX.
 func buildUnixShellCmd(exePath string, s SessionSpec) string {
-	return fmt.Sprintf("exec %s --connect %s --session %s", shellQuote(exePath), shellQuote(s.HostID), shellQuote(s.SessionID))
+	parts := []string{"exec", shellQuote(exePath)}
+	for _, a := range wrapperArgs(s) {
+		parts = append(parts, shellQuote(a))
+	}
+	return strings.Join(parts, " ")
 }
 
 func shellQuote(s string) string {

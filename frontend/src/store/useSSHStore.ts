@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import {
+  ClearSecretClipboard,
   ConnectHosts,
+  CopyKeyPassphrase,
+  CopyRDPPassword,
   DeleteHost,
   DeleteTunnel,
   GetHostStatuses,
@@ -10,6 +13,7 @@ import {
   ListKeys,
   OpenRDP,
   RefreshHostsStatus,
+  RunHostScript,
   SaveHost,
   SaveRDPCredentials,
   SaveTunnel,
@@ -32,6 +36,15 @@ export const ENV_TAB_COLOR: Record<EnvTag, string> = {
   infra: '#0078D4',
 };
 
+/** Пароль в буфере обмена: source — `rdp:<tunnelId>` или `key:<keyId>`. */
+export interface SecretClip {
+  source: string;
+  label: string;
+  expiresAt: number;
+}
+
+export type SecretSource = { kind: 'rdp' | 'key'; id: string };
+
 interface SSHStore {
   hosts: Host[];
   keys: SSHKey[];
@@ -44,9 +57,14 @@ interface SSHStore {
   envFilter: 'all' | EnvTag;
   isLoading: boolean;
   notice: { kind: 'error' | 'info'; text: string } | null;
+  secretClip: SecretClip | null;
 
   notify: (kind: 'error' | 'info', text: string) => void;
   dismissNotice: () => void;
+  copySecret: (src: SecretSource) => Promise<void>;
+  clearSecret: () => Promise<void>;
+  onSecretCleared: () => void;
+  runHostScript: (hostId: string, script: string) => Promise<boolean>;
   pinHost: (hostId: string) => Promise<void>;
   saveHost: (draft: HostDraft) => Promise<void>;
   deleteHost: (hostId: string) => Promise<void>;
@@ -96,9 +114,42 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
   envFilter: 'all',
   isLoading: false,
   notice: null,
+  secretClip: null,
 
   notify: (kind, text) => set({ notice: { kind, text } }),
   dismissNotice: () => set({ notice: null }),
+
+  copySecret: async ({ kind, id }) => {
+    try {
+      const res = kind === 'rdp' ? await CopyRDPPassword(id) : await CopyKeyPassphrase(id);
+      set({ secretClip: { source: `${kind}:${id}`, label: res.label, expiresAt: Date.now() + res.seconds * 1000 } });
+    } catch (err) {
+      get().notify('error', `Копирование: ${errorMessage(err)}`);
+    }
+  },
+
+  clearSecret: async () => {
+    try {
+      await ClearSecretClipboard();
+    } catch (err) {
+      get().notify('error', `Очистка буфера: ${errorMessage(err)}`);
+    } finally {
+      set({ secretClip: null });
+    }
+  },
+
+  // Событие clipboard:cleared: бэкенд стёр пароль по таймеру или кнопке.
+  onSecretCleared: () => { if (get().secretClip) set({ secretClip: null }); },
+
+  runHostScript: async (hostId, script) => {
+    try {
+      await RunHostScript(hostId, script);
+      return true;
+    } catch (err) {
+      get().notify('error', `Не удалось запустить ${script}: ${errorMessage(err)}`);
+      return false;
+    }
+  },
 
   pinHost: async (hostId) => {
     const host = get().hosts.find((h) => h.id === hostId);

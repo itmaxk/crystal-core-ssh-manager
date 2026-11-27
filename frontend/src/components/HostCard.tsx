@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, KeyRound, Loader2, Monitor, Pencil, Pin, Play, Trash2, Upload } from 'lucide-react';
+import { ArrowLeftRight, KeyRound, Loader2, Monitor, Pencil, Pin, Play, Rocket, Trash2, Upload } from 'lucide-react';
 import { Host, TunnelSummary } from '../types/ssh';
 import { isRDPTunnel, portOf } from './TunnelManager';
 
@@ -24,6 +24,7 @@ interface HostCardProps {
   onPinTemporary?: (hostId: string) => void;
   onOpenTunnels?: (hostId: string) => void;
   onEdit?: (hostId: string) => void;
+  onVpsSetup?: (hostId: string) => void;
   onOpenRDP?: (tunnelId: string) => Promise<void>;
   onDelete?: (hostId: string) => void;
 }
@@ -46,6 +47,7 @@ export const HostCard: React.FC<HostCardProps> = ({
   onPinTemporary,
   onOpenTunnels,
   onEdit,
+  onVpsSetup,
   onOpenRDP,
   onDelete,
 }) => {
@@ -194,6 +196,18 @@ export const HostCard: React.FC<HostCardProps> = ({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
+        {onVpsSetup && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onVpsSetup(host.id); }}
+            onDoubleClick={(e) => e.stopPropagation()}
+            title="Установить VPS Setup на сервер"
+            aria-label="Установить VPS Setup на сервер"
+            className="rounded-md px-1.5 py-1 text-neutral-400 opacity-0 transition hover:bg-black/5 hover:text-neutral-700 focus-visible:opacity-100 group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+          >
+            <Rocket className="h-3 w-3" />
+          </button>
+        )}
         {onEdit && (
           <button
             type="button"

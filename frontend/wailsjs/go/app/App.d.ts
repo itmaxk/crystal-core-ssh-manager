@@ -8,7 +8,13 @@ export function AddKey(arg1:app.AddKeyInput):Promise<db.SSHKey>;
 
 export function CancelBootstrap():Promise<void>;
 
+export function ClearSecretClipboard():Promise<void>;
+
 export function ConnectHosts(arg1:Array<string>,arg2:string):Promise<void>;
+
+export function CopyKeyPassphrase(arg1:string):Promise<app.SecretCopied>;
+
+export function CopyRDPPassword(arg1:string):Promise<app.SecretCopied>;
 
 export function DeleteHost(arg1:string):Promise<void>;
 
@@ -53,6 +59,8 @@ export function RefreshHostsStatus():Promise<void>;
 export function ResolveHostKey(arg1:boolean):Promise<void>;
 
 export function RunBootstrap(arg1:app.BootstrapInput):Promise<ssh.BootstrapResult>;
+
+export function RunHostScript(arg1:string,arg2:string):Promise<void>;
 
 export function SaveHost(arg1:db.Host):Promise<db.Host>;
 

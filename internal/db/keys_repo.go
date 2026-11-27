@@ -16,6 +16,7 @@ type SSHKey struct {
 	PublicKey     string    `json:"public_key"`
 	PrivateKeyEnc []byte    `json:"-"`
 	PassphraseEnc []byte    `json:"-"`
+	HasPassphrase bool      `json:"has_passphrase"`
 	IsDefault     bool      `json:"is_default"`
 	CreatedAt     time.Time `json:"created_at" ts_type:"string"`
 	UpdatedAt     time.Time `json:"updated_at" ts_type:"string"`
@@ -56,7 +57,8 @@ func (r *KeysRepo) Create(ctx context.Context, k *SSHKey) error {
 
 func (r *KeysRepo) List(ctx context.Context) ([]SSHKey, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, key_type, fingerprint, public_key, is_default, created_at, updated_at
+		SELECT id, name, key_type, fingerprint, public_key, is_default, created_at, updated_at,
+		       length(coalesce(passphrase_enc, '')) > 0
 		FROM ssh_keys
 		ORDER BY is_default DESC, name ASC`)
 	if err != nil {
@@ -68,7 +70,7 @@ func (r *KeysRepo) List(ctx context.Context) ([]SSHKey, error) {
 	for rows.Next() {
 		var k SSHKey
 		var isDef int
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.Fingerprint, &k.PublicKey, &isDef, &k.CreatedAt, &k.UpdatedAt); err != nil {
+		if err := rows.Scan(&k.ID, &k.Name, &k.KeyType, &k.Fingerprint, &k.PublicKey, &isDef, &k.CreatedAt, &k.UpdatedAt, &k.HasPassphrase); err != nil {
 			return nil, err
 		}
 		k.IsDefault = isDef == 1
@@ -88,6 +90,7 @@ func (r *KeysRepo) GetByID(ctx context.Context, id string) (*SSHKey, error) {
 		return nil, err
 	}
 	k.IsDefault = isDef == 1
+	k.HasPassphrase = len(k.PassphraseEnc) > 0
 	return &k, nil
 }
 

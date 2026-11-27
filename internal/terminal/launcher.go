@@ -14,6 +14,17 @@ type SessionSpec struct {
 	SessionID string
 	Title     string
 	TabColor  string
+	// Script — имя скрипта ssh-launcher-cli (--run), "" — обычная сессия.
+	Script string
+}
+
+// wrapperArgs — аргументы CLI-обёртки для сессии.
+func wrapperArgs(s SessionSpec) []string {
+	args := []string{"--connect", s.HostID, "--session", s.SessionID}
+	if s.Script != "" {
+		args = append(args, "--run", s.Script)
+	}
+	return args
 }
 
 type Launcher interface {

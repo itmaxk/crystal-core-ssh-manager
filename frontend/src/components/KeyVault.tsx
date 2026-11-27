@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Check, Copy, Eye, EyeOff, FileUp, KeyRound, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
 import { DeleteKey, GenerateKey, ImportKey, SetDefaultKey } from '../../wailsjs/go/app/App';
 import { SSHKey } from '../types/ssh';
+import { SecretCopyButton } from './SecretCopy';
 
 interface KeyVaultProps {
   keys: SSHKey[];
@@ -73,10 +74,10 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
           <p className="text-xs text-neutral-500">Приватные ключи зашифрованы AES-256-GCM и загружаются в ssh-agent напрямую из памяти</p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => openModal('import')} className="flex items-center gap-1.5 rounded-lg border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-neutral-200">
+          <button type="button" onClick={() => openModal('import')} className="flex shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-neutral-200">
             <FileUp className="h-3.5 w-3.5" /> Импортировать
           </button>
-          <button type="button" onClick={() => openModal('generate')} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
+          <button type="button" onClick={() => openModal('generate')} className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
             <Plus className="h-3.5 w-3.5" /> Создать Ed25519
           </button>
         </div>
@@ -110,6 +111,9 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
               <div className="flex shrink-0 items-center gap-1.5">
                 {!key.is_default && (
                   <button type="button" onClick={async () => { await SetDefaultKey(key.id); await onRefresh(); }} className="rounded-lg px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/10">По умолчанию</button>
+                )}
+                {key.has_passphrase && (
+                  <SecretCopyButton source={{ kind: 'key', id: key.id }} label="Фраза" title="Скопировать парольную фразу ключа" className="border border-transparent" />
                 )}
                 <button type="button" onClick={() => handleCopyPublicKey(key)} disabled={!key.public_key} className="flex items-center gap-1.5 rounded-lg border border-black/10 bg-black/[0.03] px-2.5 py-1.5 text-xs font-medium dark:border-white/10 dark:bg-white/5">
                   {copiedId === key.id ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> Скопировано</> : <><Copy className="h-3.5 w-3.5" /> .pub</>}

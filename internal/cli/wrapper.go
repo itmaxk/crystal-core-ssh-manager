@@ -23,12 +23,15 @@ type ConnectConfig struct {
 	Username   string
 	PubKeyPath string
 	JumpHost   string
+	// RemoteCommand выполняется вместо интерактивной оболочки (ssh -t).
+	RemoteCommand string
 }
 
 // Run загружает хост из БД и запускает системный ssh в текущем терминале.
 // Используется и отдельным ssh-launcher-cli.exe (Windows), и GUI-бинарником
 // с флагом --connect (macOS / Linux).
-func Run(hostID, sessionID string) int {
+// script — имя скрипта из scripts, выполняемого на сервере ("" — обычная сессия).
+func Run(hostID, sessionID, script string) int {
 	dbPath, err := db.DefaultDBPath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "resolve db path: %v\n", err)
@@ -44,6 +47,9 @@ func Run(hostID, sessionID string) int {
 	cfg, err := buildConfig(store, hostID, sessionID, filepath.Join(filepath.Dir(dbPath), db.PubKeyDirName))
 	// БД не держим открытой на всё время SSH-сессии.
 	_ = store.Close()
+	if err == nil && script != "" {
+		cfg.RemoteCommand, err = remoteCommand(script)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -114,7 +120,14 @@ func BuildSSHArgs(cfg ConnectConfig) ([]string, error) {
 	if cfg.JumpHost != "" {
 		args = append(args, "-J", cfg.JumpHost)
 	}
-	return append(args, "--", fmt.Sprintf("%s@%s", cfg.Username, cfg.Hostname)), nil
+	if cfg.RemoteCommand != "" {
+		args = append(args, "-t") // установщику нужен TTY (sudo, диалоги)
+	}
+	args = append(args, "--", fmt.Sprintf("%s@%s", cfg.Username, cfg.Hostname))
+	if cfg.RemoteCommand != "" {
+		args = append(args, cfg.RemoteCommand)
+	}
+	return args, nil
 }
 
 func RunConnect(cfg ConnectConfig) int {

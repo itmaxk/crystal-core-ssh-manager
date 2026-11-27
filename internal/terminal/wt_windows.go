@@ -53,8 +53,10 @@ func (l *WindowsTerminalLauncher) Launch(exePath string, sessions []SessionSpec,
 		if s.TabColor != "" {
 			fmt.Fprintf(&b, ` --tabColor "%s"`, escapeWT(s.TabColor))
 		}
-		fmt.Fprintf(&b, ` -- "%s" --connect "%s" --session "%s"`,
-			escapeWT(exePath), escapeWT(s.HostID), escapeWT(s.SessionID))
+		fmt.Fprintf(&b, ` -- "%s"`, escapeWT(exePath))
+		for _, a := range wrapperArgs(s) {
+			fmt.Fprintf(&b, ` "%s"`, escapeWT(a))
+		}
 
 		parts = append(parts, b.String())
 	}

@@ -13,7 +13,7 @@ const openSite = (e: React.MouseEvent) => {
   BrowserOpenURL(CRYSTAL_CORE_URL);
 };
 
-/** Компактная карточка разработчика внизу сайдбара. */
+/** Компактная рекламная карточка Crystal-Core внизу сайдбара. */
 export const SidebarPromo: React.FC = () => (
   <a
     href={CRYSTAL_CORE_URL}
@@ -23,13 +23,10 @@ export const SidebarPromo: React.FC = () => (
   >
     <div className="flex items-center gap-2">
       <CrystalLogo className="h-6 w-6 shrink-0" />
-      <div className="min-w-0 leading-tight">
-        <div className="whitespace-nowrap text-xs font-semibold text-neutral-800 dark:text-neutral-100">Crystal-Core</div>
-        <div className="whitespace-nowrap text-[10px] text-neutral-500 dark:text-neutral-400">разработчик</div>
-      </div>
+      <div className="min-w-0 whitespace-nowrap text-xs font-semibold text-neutral-800 dark:text-neutral-100">Crystal-Core</div>
     </div>
     <p className="mt-1.5 text-[11px] leading-snug text-neutral-600 dark:text-neutral-300">
-      Автоматизируем бизнес: CRM, чат-боты и AI-ассистенты под ваши процессы.
+      Автоматизация бизнес-процессов любой сложности, CRM, чат-боты и AI-ассистенты.
     </p>
     <span className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-600 group-hover:underline dark:text-blue-400">
       Обсудить проект <ArrowUpRight className="h-3 w-3" />
@@ -53,7 +50,7 @@ export const AboutCard: React.FC = () => (
     <div className="mt-3 rounded-lg bg-blue-500/[0.06] px-3 py-2.5">
       <p className="text-xs font-medium text-neutral-800 dark:text-neutral-100">Превращаем хаос в прозрачное ядро бизнеса</p>
       <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-        Автоматизация процессов, CRM и веб-приложения, чат-боты и AI-ассистенты, сайты и мобильные приложения — от задачи до поддержки.
+        Автоматизация бизнес-процессов любой сложности, CRM и веб-приложения, чат-боты и AI-ассистенты, сайты и мобильные приложения — от задачи до поддержки.
       </p>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         <a href={CRYSTAL_CORE_URL} onClick={openSite} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">

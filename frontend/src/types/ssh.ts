@@ -7,6 +7,7 @@ export interface SSHKey {
   fingerprint: string;
   public_key?: string;
   is_default: boolean;
+  has_passphrase?: boolean;
 }
 
 export interface Host {

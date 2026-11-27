@@ -10,8 +10,20 @@ export function CancelBootstrap() {
   return window['go']['app']['App']['CancelBootstrap']();
 }
 
+export function ClearSecretClipboard() {
+  return window['go']['app']['App']['ClearSecretClipboard']();
+}
+
 export function ConnectHosts(arg1, arg2) {
   return window['go']['app']['App']['ConnectHosts'](arg1, arg2);
+}
+
+export function CopyKeyPassphrase(arg1) {
+  return window['go']['app']['App']['CopyKeyPassphrase'](arg1);
+}
+
+export function CopyRDPPassword(arg1) {
+  return window['go']['app']['App']['CopyRDPPassword'](arg1);
 }
 
 export function DeleteHost(arg1) {
@@ -100,6 +112,10 @@ export function ResolveHostKey(arg1) {
 
 export function RunBootstrap(arg1) {
   return window['go']['app']['App']['RunBootstrap'](arg1);
+}
+
+export function RunHostScript(arg1, arg2) {
+  return window['go']['app']['App']['RunHostScript'](arg1, arg2);
 }
 
 export function SaveHost(arg1) {

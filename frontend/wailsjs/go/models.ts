@@ -154,6 +154,20 @@ export namespace app {
 	        this.keep_password = source["keep_password"];
 	    }
 	}
+	export class SecretCopied {
+	    label: string;
+	    seconds: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SecretCopied(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.seconds = source["seconds"];
+	    }
+	}
 
 }
 
@@ -199,6 +213,7 @@ export namespace db {
 	    key_type: string;
 	    fingerprint: string;
 	    public_key: string;
+	    has_passphrase: boolean;
 	    is_default: boolean;
 	    created_at: string;
 	    updated_at: string;
@@ -214,6 +229,7 @@ export namespace db {
 	        this.key_type = source["key_type"];
 	        this.fingerprint = source["fingerprint"];
 	        this.public_key = source["public_key"];
+	        this.has_passphrase = source["has_passphrase"];
 	        this.is_default = source["is_default"];
 	        this.created_at = source["created_at"];
 	        this.updated_at = source["updated_at"];

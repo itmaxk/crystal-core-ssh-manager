@@ -31,12 +31,13 @@ func main() {
 		fs := flag.NewFlagSet("connect", flag.ExitOnError)
 		connectHostID := fs.String("connect", "", "Host ID to connect via CLI wrapper")
 		sessionID := fs.String("session", "", "Unique session ID for IPC tracking")
+		runScript := fs.String("run", "", "Name of a predefined script to run on the host (vps-setup)")
 		_ = fs.Parse(os.Args[1:])
 		if *connectHostID == "" {
 			fmt.Fprintln(os.Stderr, "usage: --connect <host_id> --session <session_id>")
 			os.Exit(1)
 		}
-		os.Exit(cli.Run(*connectHostID, *sessionID))
+		os.Exit(cli.Run(*connectHostID, *sessionID, *runScript))
 	}
 
 	// РЕЖИМ 2: GUI-приложение (Single-Instance через IPC)

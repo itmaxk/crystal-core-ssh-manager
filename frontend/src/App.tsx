@@ -19,6 +19,8 @@ import { HostForm, hostToDraft, newHostDraft } from './components/HostForm';
 import { BackupPanel } from './components/BackupPanel';
 import { AboutCard, SidebarPromo } from './components/CrystalCorePromo';
 import { CloseToTrayDialog, isCloseHintHidden, setCloseHintHidden } from './components/CloseToTrayDialog';
+import { SecretClipStatus } from './components/SecretCopy';
+import { VPS_SETUP_SCRIPT, VpsSetupDialog } from './components/VpsSetupDialog';
 import { HostDraft, ParsedTarget } from './types/ssh';
 
 type Section = 'hosts' | 'temporary' | 'tunnels' | 'keys' | 'settings';
@@ -32,7 +34,7 @@ export function App() {
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
     connectHosts, quickConnect, saveAndConnectHost, saveHost, pinHost, deleteHost, uploadFiles,
     saveTunnel, deleteTunnel, startTunnel, stopTunnel, openRDP, createTunnels,
-    notice, notify, dismissNotice,
+    notice, notify, dismissNotice, onSecretCleared, runHostScript,
     onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
   } = useSSHStore();
 
@@ -45,6 +47,8 @@ export function App() {
   const [importCount, setImportCount] = useState<number | null>(null);
   const [hostDraft, setHostDraft] = useState<HostDraft | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [vpsSetupHostId, setVpsSetupHostId] = useState<string | null>(null);
+  const vpsSetupHost = vpsSetupHostId ? hosts.find((h) => h.id === vpsSetupHostId) : undefined;
   const [trayAvailable, setTrayAvailable] = useState(false);
   const [closeHintHidden, setCloseHintHiddenState] = useState(isCloseHintHidden);
 
@@ -65,6 +69,7 @@ export function App() {
     const offSftp = EventsOn('sftp:progress', (p: any) => onUploadProgressEvent(p.host_id, p.percent, p.done, Boolean(p.error)));
     const offAgent = EventsOn('agent:status', (st: any) => setAgentAvailable(Boolean(st?.available)));
     const offClose = EventsOn('ui:close_requested', () => { requestClose(); });
+    const offClip = EventsOn('clipboard:cleared', () => onSecretCleared());
     TrayAvailable().then(setTrayAvailable).catch(() => setTrayAvailable(false));
 
     // Quick SFTP Dropzone: Wails отдаёт реальные пути файлов и координаты drop.
@@ -78,7 +83,7 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      offPing(); offSession(); offTunnel(); offSftp(); offAgent(); offClose();
+      offPing(); offSession(); offTunnel(); offSftp(); offAgent(); offClose(); offClip();
       OnFileDropOff();
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -278,6 +283,7 @@ export function App() {
                     onPinTemporary={pinHost}
                     onOpenTunnels={(id) => { setTunnelHostFilter(id); setActiveSection('tunnels'); }}
                     onEdit={() => setHostDraft(hostToDraft(host))}
+                    onVpsSetup={setVpsSetupHostId}
                     onOpenRDP={openRDP}
                     onDelete={deleteHost}
                   />
@@ -307,6 +313,7 @@ export function App() {
           <span>ssh-agent: {agentAvailable ? `Активен (${keys.length} ключей)` : 'Не запущен'}</span>
         </div>
         <div className="flex items-center gap-4">
+          <SecretClipStatus />
           <span>Активных сессий: {Object.keys(sessions).length}</span>
           <span>Активных туннелей: {activeTunnelsCount}</span>
         </div>
@@ -324,6 +331,14 @@ export function App() {
         >
           {notice.text}
         </div>
+      )}
+
+      {vpsSetupHost && (
+        <VpsSetupDialog
+          host={vpsSetupHost}
+          onCancel={() => setVpsSetupHostId(null)}
+          onRun={() => runHostScript(vpsSetupHost.id, VPS_SETUP_SCRIPT)}
+        />
       )}
 
       {closeDialogOpen && (

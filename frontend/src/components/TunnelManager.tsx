@@ -6,6 +6,7 @@ import { Host, TunnelDirection, TunnelDraft, TunnelSummary } from '../types/ssh'
 import { errorMessage } from '../store/useSSHStore';
 import { DiscoveredTunnel, ServiceDiscovery } from './ServiceDiscovery';
 import { useEscape } from '../hooks/useEscape';
+import { SecretCopyButton } from './SecretCopy';
 
 interface TunnelManagerProps {
   hosts: Host[];
@@ -294,6 +295,9 @@ const TunnelRow: React.FC<{
             {meta.label}
             {t.state === 'active' && t.active_conns > 0 && ` · ${t.active_conns} соед.`}
           </span>
+          {isRDPTunnel(t) && t.has_rdp_password && (
+            <SecretCopyButton source={{ kind: 'rdp', id: t.id }} label="Пароль" title={`Скопировать пароль RDP для ${t.rdp_username}`} />
+          )}
           {onOpenRDP && (
             <button
               type="button"

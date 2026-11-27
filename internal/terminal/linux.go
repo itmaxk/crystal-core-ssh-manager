@@ -35,21 +35,21 @@ func (l *LinuxLauncher) IsAvailable() bool { return l.bin != "" }
 func (l *LinuxLauncher) Launch(exePath string, sessions []SessionSpec, mode LaunchMode) error {
 	for _, s := range sessions {
 		var args []string
-		wrapperArgs := []string{exePath, "--connect", s.HostID, "--session", s.SessionID}
+		cmdArgs := append([]string{exePath}, wrapperArgs(s)...)
 
 		switch l.bin {
 		case "wezterm":
-			args = append([]string{"start", "--"}, wrapperArgs...)
+			args = append([]string{"start", "--"}, cmdArgs...)
 		case "kitty":
-			args = append([]string{"--title", s.Title}, wrapperArgs...)
+			args = append([]string{"--title", s.Title}, cmdArgs...)
 		case "konsole":
-			args = append([]string{"--new-tab", "-e"}, wrapperArgs...)
+			args = append([]string{"--new-tab", "-e"}, cmdArgs...)
 		case "gnome-terminal":
-			args = append([]string{"--tab", "--title", s.Title, "--"}, wrapperArgs...)
+			args = append([]string{"--tab", "--title", s.Title, "--"}, cmdArgs...)
 		case "alacritty":
-			args = append([]string{"--title", s.Title, "-e"}, wrapperArgs...)
+			args = append([]string{"--title", s.Title, "-e"}, cmdArgs...)
 		default:
-			args = append([]string{"-e"}, wrapperArgs...)
+			args = append([]string{"-e"}, cmdArgs...)
 		}
 
 		if err := exec.Command(l.bin, args...).Start(); err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"ssh-launcher/internal/cli"
 	"ssh-launcher/internal/crypto"
 	"ssh-launcher/internal/db"
 	"ssh-launcher/internal/ipc"
@@ -43,6 +44,9 @@ type App struct {
 
 	quitting atomic.Bool
 
+	clipboard  clipboardBackend
+	secretClip secretClipboard
+
 	bootstrapMu     sync.Mutex
 	bootstrapCancel context.CancelFunc
 	hostKeyCh       chan bool
@@ -60,6 +64,7 @@ func New() *App {
 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.clipboard = newPlatformClipboard(ctx)
 	bgCtx, cancel := context.WithCancel(context.Background())
 	a.cancelBg = cancel
 
@@ -205,6 +210,8 @@ func (a *App) hostWithKey(hostID string) (*db.Host, []byte, []byte, error) {
 // Настоящий выход идёт через ExitApp, который выставляет quitting.
 func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
 	if a.quitting.Load() || !trayAvailable {
+		// Пароль не должен пережить приложение в буфере обмена.
+		_ = a.clearSecret(0)
 		return false
 	}
 	runtime.EventsEmit(ctx, "ui:close_requested", nil)
@@ -224,6 +231,7 @@ func (a *App) HideToTray() {
 // ExitApp полностью завершает приложение (туннели останавливаются).
 func (a *App) ExitApp() {
 	a.quitting.Store(true)
+	_ = a.clearSecret(0)
 	runtime.Quit(a.ctx)
 }
 
@@ -442,6 +450,41 @@ func (a *App) ConnectHosts(hostIDs []string, mode string) error {
 		launchMode = terminal.ModeSplit
 	}
 	return a.launcher.Launch(exePath, specs, launchMode)
+}
+
+// RunHostScript открывает вкладку терминала и выполняет на сервере один из
+// предопределённых скриптов (сейчас только "vps-setup"). Терминал нужен, потому
+// что установщик интерактивный: sudo спрашивает пароль, есть диалоги.
+func (a *App) RunHostScript(hostID, script string) error {
+	if err := a.ready(); err != nil {
+		return err
+	}
+	if !cli.IsScript(script) {
+		return fmt.Errorf("неизвестный скрипт %q", script)
+	}
+	if a.launcher == nil {
+		return terminal.ErrNoTerminalFound
+	}
+	exePath, err := resolveCLIExecutable()
+	if err != nil {
+		return err
+	}
+	host, err := a.store.Hosts.GetByID(a.ctx, hostID)
+	if err != nil {
+		return fmt.Errorf("load host %s: %w", hostID, err)
+	}
+	if host.KeyID != nil && *host.KeyID != "" {
+		if err := a.ensureKeyReady(*host.KeyID); err != nil {
+			return fmt.Errorf("prepare key for %s: %w", host.Name, err)
+		}
+	}
+	return a.launcher.Launch(exePath, []terminal.SessionSpec{{
+		HostID:    host.ID,
+		SessionID: uuid.NewString(),
+		Title:     host.Name + " · " + script,
+		TabColor:  host.TabColor,
+		Script:    script,
+	}}, terminal.ModeTabs)
 }
 
 // --- Keys ---
