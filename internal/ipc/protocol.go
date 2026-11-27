@@ -14,6 +14,8 @@ const (
 	MsgSessionStarted MessageType = "session_started"
 	MsgSessionEnded   MessageType = "session_ended"
 	MsgFocusOmnibar   MessageType = "focus_omnibar"
+	// MsgProbe — проверка, что инстанс жив; обработчик его игнорирует.
+	MsgProbe MessageType = "probe"
 )
 
 type Message struct {

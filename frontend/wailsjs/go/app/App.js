@@ -10,6 +10,14 @@ export function CancelBootstrap() {
   return window['go']['app']['App']['CancelBootstrap']();
 }
 
+export function CancelUpdateDownload() {
+  return window['go']['app']['App']['CancelUpdateDownload']();
+}
+
+export function CheckForUpdate() {
+  return window['go']['app']['App']['CheckForUpdate']();
+}
+
 export function ClearSecretClipboard() {
   return window['go']['app']['App']['ClearSecretClipboard']();
 }
@@ -42,6 +50,10 @@ export function DiscoverServices(arg1) {
   return window['go']['app']['App']['DiscoverServices'](arg1);
 }
 
+export function DownloadUpdate() {
+  return window['go']['app']['App']['DownloadUpdate']();
+}
+
 export function ExitApp() {
   return window['go']['app']['App']['ExitApp']();
 }
@@ -52,6 +64,10 @@ export function ExportBackup(arg1) {
 
 export function GenerateKey(arg1, arg2, arg3) {
   return window['go']['app']['App']['GenerateKey'](arg1, arg2, arg3);
+}
+
+export function GetAppVersion() {
+  return window['go']['app']['App']['GetAppVersion']();
 }
 
 export function GetHostStatuses() {
@@ -72,6 +88,10 @@ export function ImportBackup(arg1, arg2) {
 
 export function ImportKey(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['ImportKey'](arg1, arg2, arg3, arg4);
+}
+
+export function InstallUpdate() {
+  return window['go']['app']['App']['InstallUpdate']();
 }
 
 export function ListAllTunnels() {

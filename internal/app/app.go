@@ -47,6 +47,8 @@ type App struct {
 	clipboard  clipboardBackend
 	secretClip secretClipboard
 
+	upd updateState
+
 	bootstrapMu     sync.Mutex
 	bootstrapCancel context.CancelFunc
 	hostKeyCh       chan bool
@@ -65,6 +67,7 @@ func New() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.clipboard = newPlatformClipboard(ctx)
+	go a.cleanupUpdates()
 	bgCtx, cancel := context.WithCancel(context.Background())
 	a.cancelBg = cancel
 

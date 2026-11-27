@@ -20,6 +20,8 @@ import { BackupPanel } from './components/BackupPanel';
 import { AboutCard, SidebarPromo } from './components/CrystalCorePromo';
 import { CloseToTrayDialog, isCloseHintHidden, setCloseHintHidden } from './components/CloseToTrayDialog';
 import { SecretClipStatus } from './components/SecretCopy';
+import { SidebarUpdateBadge, UpdateCard } from './components/Updater';
+import { useUpdateStore } from './store/useUpdateStore';
 import { VPS_SETUP_SCRIPT, VpsSetupDialog } from './components/VpsSetupDialog';
 import { HostDraft, ParsedTarget } from './types/ssh';
 
@@ -48,6 +50,7 @@ export function App() {
   const [hostDraft, setHostDraft] = useState<HostDraft | null>(null);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [vpsSetupHostId, setVpsSetupHostId] = useState<string | null>(null);
+  const updateAvailable = useUpdateStore((s) => Boolean(s.info?.available));
   const vpsSetupHost = vpsSetupHostId ? hosts.find((h) => h.id === vpsSetupHostId) : undefined;
   const [trayAvailable, setTrayAvailable] = useState(false);
   const [closeHintHidden, setCloseHintHiddenState] = useState(isCloseHintHidden);
@@ -70,6 +73,7 @@ export function App() {
     const offAgent = EventsOn('agent:status', (st: any) => setAgentAvailable(Boolean(st?.available)));
     const offClose = EventsOn('ui:close_requested', () => { requestClose(); });
     const offClip = EventsOn('clipboard:cleared', () => onSecretCleared());
+    const offUpd = EventsOn('update:progress', (p: any) => useUpdateStore.getState().onProgress(p.done, p.total));
     TrayAvailable().then(setTrayAvailable).catch(() => setTrayAvailable(false));
 
     // Quick SFTP Dropzone: Wails отдаёт реальные пути файлов и координаты drop.
@@ -83,10 +87,18 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      offPing(); offSession(); offTunnel(); offSftp(); offAgent(); offClose(); offClip();
+      offPing(); offSession(); offTunnel(); offSftp(); offAgent(); offClose(); offClip(); offUpd();
       OnFileDropOff();
       window.removeEventListener('keydown', handleKeyDown);
     };
+  }, []);
+
+  // Фоновая проверка обновлений: при запуске и раз в 6 часов (окно в трее живёт долго).
+  useEffect(() => {
+    const run = () => { if (useUpdateStore.getState().autoCheck) useUpdateStore.getState().check(true); };
+    const first = setTimeout(run, 4000);
+    const every = setInterval(run, 6 * 60 * 60 * 1000);
+    return () => { clearTimeout(first); clearInterval(every); };
   }, []);
 
   useEffect(() => {
@@ -178,6 +190,7 @@ export function App() {
             <SidebarItem icon={<KeyRound className="h-4 w-4" />} label="Ключи" active={activeSection === 'keys'} count={keys.length} onClick={() => setActiveSection('keys')} />
           </nav>
           <div className="text-xs font-medium">
+            <SidebarUpdateBadge onOpen={() => setActiveSection('settings')} />
             <SidebarPromo />
             <SidebarItem icon={<Settings className="h-4 w-4" />} label="Настройки" active={activeSection === 'settings'} onClick={() => setActiveSection('settings')} />
           </div>
@@ -204,6 +217,8 @@ export function App() {
           {activeSection === 'settings' && (
             <div className="min-h-0 max-w-xl flex-1 space-y-4 overflow-y-auto p-5">
               <h1 className="text-base font-semibold">Настройки</h1>
+              {/* Доступное обновление — первым, чтобы плашка из сайдбара вела прямо к нему. */}
+              {updateAvailable && <UpdateCard />}
               <div className="rounded-xl border border-black/10 bg-white/65 p-4 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/60">
                 <div className="text-sm font-medium">Синхронизация с ~/.ssh/config</div>
                 <p className="mt-1 text-xs text-neutral-500">
@@ -222,6 +237,8 @@ export function App() {
               </div>
 
               <AboutCard />
+
+              {!updateAvailable && <UpdateCard />}
 
               <BackupPanel onImported={loadInitial} notify={notify} />
 

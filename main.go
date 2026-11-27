@@ -2,11 +2,13 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -22,6 +24,35 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// Версия приложения берётся из wails.json (productVersion) — того же поля,
+// что попадает в свойства .exe, поэтому их не нужно синхронизировать вручную.
+//
+//go:embed wails.json
+var wailsJSON []byte
+
+func appVersion() string {
+	var cfg struct {
+		Info struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+	}
+	_ = json.Unmarshal(wailsJSON, &cfg)
+	return cfg.Info.ProductVersion
+}
+
+// waitPreviousInstance: после обновления новая версия запускается, пока старая
+// ещё завершается. Ждём, пока её IPC перестанет отвечать, иначе проверка
+// единственного экземпляра просто сфокусировала бы старое окно.
+func waitPreviousInstance(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if ipc.Send(ipc.Message{Type: ipc.MsgProbe}) != nil {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
 
 func main() {
 	// РЕЖИМ 1: CLI-обёртка внутри вкладки терминала (macOS / Linux).
@@ -41,10 +72,14 @@ func main() {
 	}
 
 	// РЕЖИМ 2: GUI-приложение (Single-Instance через IPC)
+	if hasFlag("after-update") {
+		waitPreviousInstance(20 * time.Second)
+	}
 	if err := ipc.Send(ipc.Message{Type: ipc.MsgFocusOmnibar}); err == nil {
 		return
 	}
 
+	app.SetVersion(appVersion())
 	application := app.New()
 
 	err := wails.Run(&options.App{

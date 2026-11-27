@@ -325,3 +325,38 @@ export namespace ssh {
 
 }
 
+export namespace update {
+	
+	export class Info {
+	    current: string;
+	    latest: string;
+	    available: boolean;
+	    notes: string;
+	    url: string;
+	    published: string;
+	    asset_name?: string;
+	    asset_size?: number;
+	    can_install: boolean;
+	    reason?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = source["current"];
+	        this.latest = source["latest"];
+	        this.available = source["available"];
+	        this.notes = source["notes"];
+	        this.url = source["url"];
+	        this.published = source["published"];
+	        this.asset_name = source["asset_name"];
+	        this.asset_size = source["asset_size"];
+	        this.can_install = source["can_install"];
+	        this.reason = source["reason"];
+	    }
+	}
+
+}
+
