@@ -49,10 +49,14 @@ func TestOpenMigrateAndCRUD(t *testing.T) {
 	}
 
 	// Повторное открытие не должно повторно применять миграции.
+	// (defer выше закрывает первый store; второй закрываем сами, иначе на
+	// Windows очистка TempDir падает на занятом vault.db.)
 	store.Close()
-	if store, err = Open(path); err != nil {
+	reopened, err := Open(path)
+	if err != nil {
 		t.Fatal(err)
 	}
+	reopened.Close()
 }
 
 func mkdirAll(dir string) error { return os.MkdirAll(dir, 0700) }

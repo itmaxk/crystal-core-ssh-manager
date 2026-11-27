@@ -84,7 +84,7 @@ jobs:
             Windows)
               7z a "dist/${{ matrix.artifact_name }}.zip" ./build/bin/CrystalCoreSSHManager.exe ./build/bin/ssh-launcher-cli.exe ;;
             macOS)
-              ditto -c -k --keepParent build/bin/CrystalCoreSSHManager.app "dist/${{ matrix.artifact_name }}.zip" ;;
+              ditto -c -k --keepParent build/bin/crystal-core-ssh-manager.app "dist/${{ matrix.artifact_name }}.zip" ;;
             Linux)
               tar -czf "dist/${{ matrix.artifact_name }}.tar.gz" -C build/bin CrystalCoreSSHManager ;;
           esac

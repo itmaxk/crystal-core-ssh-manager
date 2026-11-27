@@ -29,7 +29,7 @@
 | Платформа | Файл | Примечание |
 | :--- | :--- | :--- |
 | Windows 10/11 x64 | `crystal-core-ssh-manager-windows-amd64.zip` | Распакуйте `CrystalCoreSSHManager.exe` и `ssh-launcher-cli.exe` в одну папку. Нужны Windows Terminal и WebView2. |
-| macOS (Intel + Apple Silicon) | `crystal-core-ssh-manager-macos-universal.zip` | Сборка не подписана: после распаковки выполните `xattr -dr com.apple.quarantine CrystalCoreSSHManager.app`. |
+| macOS (Intel + Apple Silicon) | `crystal-core-ssh-manager-macos-universal.zip` | Сборка не подписана: после распаковки выполните `xattr -dr com.apple.quarantine crystal-core-ssh-manager.app`. |
 | Linux x64 | `crystal-core-ssh-manager-linux-amd64.tar.gz` | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+), `libwebkit2gtk-4.1-0`, `libgtk-3-0` и Secret Service (GNOME Keyring / KWallet) для мастер-ключа. |
 
 Контрольные суммы — в `SHA256SUMS.txt` в каждом релизе.
@@ -112,7 +112,7 @@ TAG=v1.5.0
 git checkout "$TAG"
 wails build -clean -platform darwin/universal
 cd build/bin
-ditto -c -k --keepParent CrystalCoreSSHManager.app crystal-core-ssh-manager-macos-universal.zip
+ditto -c -k --keepParent crystal-core-ssh-manager.app crystal-core-ssh-manager-macos-universal.zip
 gh release upload "$TAG" crystal-core-ssh-manager-macos-universal.zip --clobber
 
 # Дописать хеш в SHA256SUMS.txt релиза
@@ -123,7 +123,7 @@ mv SHA256SUMS.new SHA256SUMS.txt
 gh release upload "$TAG" SHA256SUMS.txt --clobber
 ```
 
-Сборка не подписана сертификатом Apple: при первом запуске откройте приложение через правый клик → «Открыть» или снимите карантин командой `xattr -dr com.apple.quarantine CrystalCoreSSHManager.app`.
+Сборка не подписана сертификатом Apple: при первом запуске откройте приложение через правый клик → «Открыть» или снимите карантин командой `xattr -dr com.apple.quarantine crystal-core-ssh-manager.app`.
 
 ## Ограничения
 

@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -141,7 +142,8 @@ func TestCheckDownloadInstallLinux(t *testing.T) {
 	if b, _ := os.ReadFile(exe); string(b) != "new-app" {
 		t.Fatalf("exe not replaced: %q", b)
 	}
-	if fi, _ := os.Stat(exe); fi.Mode().Perm()&0o100 == 0 {
+	// На Windows бита исполняемости нет.
+	if fi, _ := os.Stat(exe); runtime.GOOS != "windows" && fi.Mode().Perm()&0o100 == 0 {
 		t.Fatal("new exe is not executable")
 	}
 	left, _ := filepath.Glob(filepath.Join(filepath.Dir(exe), "*.old-*"))
