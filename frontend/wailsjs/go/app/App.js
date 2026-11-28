@@ -6,6 +6,10 @@ export function AddKey(arg1) {
   return window['go']['app']['App']['AddKey'](arg1);
 }
 
+export function AgentKeyCount() {
+  return window['go']['app']['App']['AgentKeyCount']();
+}
+
 export function CancelBootstrap() {
   return window['go']['app']['App']['CancelBootstrap']();
 }
@@ -108,6 +112,10 @@ export function ListKeys() {
 
 export function ListTunnels(arg1) {
   return window['go']['app']['App']['ListTunnels'](arg1);
+}
+
+export function LockKeys() {
+  return window['go']['app']['App']['LockKeys']();
 }
 
 export function OpenRDP(arg1) {

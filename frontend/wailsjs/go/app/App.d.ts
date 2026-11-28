@@ -7,6 +7,8 @@ import {ssh} from '../models';
 
 export function AddKey(arg1:app.AddKeyInput):Promise<db.SSHKey>;
 
+export function AgentKeyCount():Promise<number>;
+
 export function CancelBootstrap():Promise<void>;
 
 export function CancelUpdateDownload():Promise<void>;
@@ -58,6 +60,8 @@ export function ListHosts():Promise<Array<db.Host>>;
 export function ListKeys():Promise<Array<db.SSHKey>>;
 
 export function ListTunnels(arg1:string):Promise<Array<db.Tunnel>>;
+
+export function LockKeys():Promise<number>;
 
 export function OpenRDP(arg1:string):Promise<void>;
 

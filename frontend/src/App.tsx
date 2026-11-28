@@ -32,12 +32,12 @@ const NO_DRAG_STYLE = { '--wails-draggable': 'no-drag' } as React.CSSProperties;
 
 export function App() {
   const {
-    hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, envFilter,
+    hosts, keys, pings, sessions, tunnelsByHost, uploads, selectedHostIds, agentAvailable, agentKeyCount, envFilter,
     loadInitial, refreshPings, setEnvFilter, toggleSelectHost, clearSelection,
     connectHosts, quickConnect, saveAndConnectHost, saveHost, pinHost, deleteHost, uploadFiles,
     saveTunnel, deleteTunnel, startTunnel, stopTunnel, openRDP, createTunnels,
     notice, notify, dismissNotice, onSecretCleared, runHostScript,
-    onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentAvailable,
+    onPingEvent, onSessionEvent, onTunnelStatusEvent, onUploadProgressEvent, setAgentStatus,
   } = useSSHStore();
 
   const [activeSection, setActiveSection] = useState<Section>('hosts');
@@ -70,7 +70,7 @@ export function App() {
     const offSession = EventsOn('session:update', (msg: any) => onSessionEvent(msg.type, msg.session_id, msg.host_id));
     const offTunnel = EventsOn('tunnel:status', (st: any) => onTunnelStatusEvent(st.tunnel_id, st.state, st.active_conns, st.last_error));
     const offSftp = EventsOn('sftp:progress', (p: any) => onUploadProgressEvent(p.host_id, p.percent, p.done, Boolean(p.error)));
-    const offAgent = EventsOn('agent:status', (st: any) => setAgentAvailable(Boolean(st?.available)));
+    const offAgent = EventsOn('agent:status', (st: any) => setAgentStatus(Boolean(st?.available), Number(st?.keys ?? 0)));
     const offClose = EventsOn('ui:close_requested', () => { requestClose(); });
     const offClip = EventsOn('clipboard:cleared', () => onSecretCleared());
     const offUpd = EventsOn('update:progress', (p: any) => useUpdateStore.getState().onProgress(p.done, p.total));
@@ -327,7 +327,7 @@ export function App() {
       <footer className="flex h-7 shrink-0 items-center justify-between border-t border-black/10 px-4 text-[11px] text-neutral-500 dark:border-white/10 dark:text-neutral-400">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${agentAvailable ? 'bg-emerald-500' : 'bg-red-500'}`} />
-          <span>ssh-agent: {agentAvailable ? `Активен (${keys.length} ключей)` : 'Не запущен'}</span>
+          <span>ssh-agent: {agentAvailable ? `Активен · ключей в агенте: ${agentKeyCount}` : 'Не запущен'}</span>
         </div>
         <div className="flex items-center gap-4">
           <SecretClipStatus />

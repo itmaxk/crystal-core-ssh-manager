@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	sshagent "golang.org/x/crypto/ssh/agent"
@@ -16,6 +17,12 @@ func IsAvailable() bool {
 	_ = conn.Close()
 	return true
 }
+
+const (
+	// keyLifetime ограничивает время жизни ключа в ssh-agent: даже если
+	// приложение не выгрузит ключ, агент забудет его через 8 часов.
+	keyLifetime = 8 * time.Hour
+)
 
 func AddKey(privateKeyPEM, passphrase []byte, comment string) error {
 	defer crypto.ZeroBytes(privateKeyPEM)
@@ -42,12 +49,19 @@ func AddKey(privateKeyPEM, passphrase []byte, comment string) error {
 	defer conn.Close()
 
 	client := sshagent.NewClient(conn)
-	err = client.Add(sshagent.AddedKey{
-		PrivateKey: rawKey,
-		Comment:    comment,
-	})
-	if err != nil {
-		return fmt.Errorf("add key to ssh-agent: %w", err)
+	added := sshagent.AddedKey{
+		PrivateKey:   rawKey,
+		Comment:      comment,
+		LifetimeSecs: uint32(keyLifetime / time.Second),
+	}
+	if err := client.Add(added); err != nil {
+		// Часть агентов (например, Windows OpenSSH) не поддерживает TTL.
+		// Не ломаем подключение: добавляем без срока жизни, но приложение
+		// всё равно выгрузит ключ при сворачивании/выходе.
+		added.LifetimeSecs = 0
+		if fallbackErr := client.Add(added); fallbackErr != nil {
+			return fmt.Errorf("add key to ssh-agent: %w", err)
+		}
 	}
 
 	return nil

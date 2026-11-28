@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Check, Copy, Eye, EyeOff, FileUp, KeyRound, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
-import { DeleteKey, GenerateKey, ImportKey, SetDefaultKey } from '../../wailsjs/go/app/App';
+import { Check, Copy, Eye, EyeOff, FileUp, KeyRound, Lock, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { DeleteKey, GenerateKey, ImportKey, LockKeys, SetDefaultKey } from '../../wailsjs/go/app/App';
 import { SSHKey } from '../types/ssh';
 import { SecretCopyButton } from './SecretCopy';
 
@@ -20,6 +20,8 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
   const [privateKeyPEM, setPrivateKeyPEM] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locking, setLocking] = useState(false);
+  const [lockMessage, setLockMessage] = useState<{ text: string; error: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const openModal = (mode: 'generate' | 'import') => {
@@ -44,6 +46,22 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
     setConfirmDeleteId(null);
     await DeleteKey(keyId);
     await onRefresh();
+  };
+
+  const handleLock = async () => {
+    setLocking(true); setLockMessage(null);
+    try {
+      const removed = await LockKeys();
+      setLockMessage({
+        text: removed > 0 ? `Ключи выгружены из ssh-agent: ${removed}` : 'В ssh-agent нет ключей из этого хранилища',
+        error: false,
+      });
+    } catch (err: unknown) {
+      setLockMessage({ text: err instanceof Error ? err.message : String(err), error: true });
+    } finally {
+      setLocking(false);
+      setTimeout(() => setLockMessage(null), 5000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,17 +89,26 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Хранилище ключей (Key Vault)</h1>
-          <p className="text-xs text-neutral-500">Приватные ключи зашифрованы AES-256-GCM и загружаются в ssh-agent напрямую из памяти</p>
+          <p className="text-xs text-neutral-500">Приватные ключи зашифрованы AES-256-GCM и загружаются в ssh-agent напрямую из памяти. При сворачивании в трей и выходе выгружаются автоматически</p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => openModal('import')} className="flex shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-neutral-200">
-            <FileUp className="h-3.5 w-3.5" /> Импортировать
+          <button type="button" onClick={handleLock} disabled={locking} title="Выгрузить ключи из системного ssh-agent" className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-white disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-neutral-200">
+            <Lock className="h-3.5 w-3.5" /> {locking ? 'Блокировка…' : 'Заблокировать'}
           </button>
-          <button type="button" onClick={() => openModal('generate')} className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
-            <Plus className="h-3.5 w-3.5" /> Создать Ed25519
+          <button type="button" onClick={() => openModal('import')} title="Импортировать приватный ключ" className="flex shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-black/10 bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-neutral-200">
+            <FileUp className="h-3.5 w-3.5" /> Импорт
+          </button>
+          <button type="button" onClick={() => openModal('generate')} title="Создать ключ Ed25519" className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
+            <Plus className="h-3.5 w-3.5" /> Создать
           </button>
         </div>
       </div>
+
+      {lockMessage && (
+        <p className={`mb-3 text-xs ${lockMessage.error ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {lockMessage.text}
+        </p>
+      )}
 
       {keys.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 p-8 text-center dark:border-white/15">
@@ -167,6 +194,9 @@ export const KeyVault: React.FC<KeyVaultProps> = ({ keys, onRefresh }) => {
               <label className="flex cursor-pointer items-center gap-2 text-xs">
                 <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} /> Использовать по умолчанию
               </label>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+                {modalMode === 'import' ? 'Импортированный' : 'Созданный'} ключ сразу загружается в системный ssh-agent и будет доступен всем программам этого пользователя. При сворачивании в трей, выходе или нажатии «Заблокировать» он выгружается (не дольше 8 часов).
+              </div>
               {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}</div>}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setModalMode(null)} className="rounded-lg px-3.5 py-1.5 text-xs font-medium">Отмена</button>

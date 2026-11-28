@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  AgentKeyCount,
   ClearSecretClipboard,
   ConnectHosts,
   CopyKeyPassphrase,
@@ -54,6 +55,7 @@ interface SSHStore {
   uploads: Record<string, number | null>;
   selectedHostIds: string[];
   agentAvailable: boolean;
+  agentKeyCount: number;
   envFilter: 'all' | EnvTag;
   isLoading: boolean;
   notice: { kind: 'error' | 'info'; text: string } | null;
@@ -99,7 +101,7 @@ interface SSHStore {
     start: boolean
   ) => Promise<{ created: number; errors: string[] }>;
   onUploadProgressEvent: (hostId: string, percent: number, done: boolean, hasError: boolean) => void;
-  setAgentAvailable: (available: boolean) => void;
+  setAgentStatus: (available: boolean, keyCount: number) => void;
 }
 
 export const useSSHStore = create<SSHStore>((set, get) => ({
@@ -111,6 +113,7 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
   uploads: {},
   selectedHostIds: [],
   agentAvailable: true,
+  agentKeyCount: 0,
   envFilter: 'all',
   isLoading: false,
   notice: null,
@@ -199,10 +202,11 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
   loadInitial: async () => {
     set({ isLoading: true });
     try {
-      const [hosts, keys, statuses] = await Promise.all([
+      const [hosts, keys, statuses, agentKeys] = await Promise.all([
         ListHosts(),
         ListKeys(),
         GetHostStatuses(),
+        AgentKeyCount().catch(() => -1),
       ]);
 
       const pings: Record<string, number | null> = {};
@@ -214,6 +218,8 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
         hosts: (hosts || []) as Host[],
         keys: (keys || []) as SSHKey[],
         pings,
+        agentAvailable: agentKeys >= 0,
+        agentKeyCount: agentKeys >= 0 ? agentKeys : 0,
         isLoading: false,
       });
       await get().loadTunnels();
@@ -450,5 +456,5 @@ export const useSSHStore = create<SSHStore>((set, get) => ({
       uploads: { ...state.uploads, [hostId]: done || hasError ? null : percent },
     })),
 
-  setAgentAvailable: (agentAvailable) => set({ agentAvailable }),
+  setAgentStatus: (agentAvailable, agentKeyCount) => set({ agentAvailable, agentKeyCount }),
 }));

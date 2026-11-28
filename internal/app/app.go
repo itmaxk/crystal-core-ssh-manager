@@ -43,6 +43,7 @@ type App struct {
 	initErr error
 
 	quitting atomic.Bool
+	uiReady  atomic.Bool
 
 	clipboard  clipboardBackend
 	secretClip secretClipboard
@@ -153,8 +154,23 @@ func (a *App) DomReady(ctx context.Context) {
 		runtime.Quit(ctx)
 		return
 	}
-	runtime.EventsEmit(ctx, "agent:status", map[string]any{
+	a.uiReady.Store(true)
+	a.emitAgentStatus()
+}
+
+// emitAgentStatus сообщает UI, доступен ли агент и сколько ключей сейчас
+// реально загружено в него (а не сколько лежит в хранилище).
+func (a *App) emitAgentStatus() {
+	if a.ctx == nil || !a.uiReady.Load() {
+		return
+	}
+	keyCount := 0
+	if loaded, err := agent.ListFingerprints(); err == nil {
+		keyCount = len(loaded)
+	}
+	runtime.EventsEmit(a.ctx, "agent:status", map[string]any{
 		"available": agent.IsAvailable(),
+		"keys":      keyCount,
 	})
 }
 
@@ -225,8 +241,15 @@ func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
 func (a *App) TrayAvailable() bool { return trayAvailable }
 
 // HideToTray прячет окно; приложение продолжает работать в трее.
+// Ключи при этом выгружаются из ssh-agent: туннели работают на ключах в памяти,
+// а внешние программы больше не могут войти на серверы без повторного подключения.
 func (a *App) HideToTray() {
 	if trayAvailable {
+		if n, err := a.LockKeys(); err != nil {
+			a.warnf("lock keys on hide: %v", err)
+		} else if n > 0 {
+			a.warnf("locked %d ssh-agent key(s) on hide", n)
+		}
 		runtime.WindowHide(a.ctx)
 	}
 }
@@ -243,6 +266,14 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.CancelBootstrap()
 	if a.tunnels != nil {
 		a.tunnels.StopAll()
+	}
+	a.uiReady.Store(false)
+	// Не оставляем ключи в ssh-agent после выхода: любой процесс пользователя
+	// иначе сможет пользоваться ими бесконечно.
+	if a.store != nil {
+		if _, err := a.LockKeys(); err != nil {
+			a.warnf("lock keys on shutdown: %v", err)
+		}
 	}
 	if a.cancelBg != nil {
 		a.cancelBg()
@@ -617,7 +648,52 @@ func (a *App) DeleteKey(keyID string) error {
 	if err := agent.RemoveKey(k.PublicKey); err != nil {
 		a.warnf("remove key %s from ssh-agent: %v", k.Name, err)
 	}
+	a.emitAgentStatus()
 	return nil
+}
+
+// AgentKeyCount возвращает число ключей, реально загруженных в ssh-agent.
+func (a *App) AgentKeyCount() (int, error) {
+	loaded, err := agent.ListFingerprints()
+	if err != nil {
+		return 0, err
+	}
+	return len(loaded), nil
+}
+
+// LockKeys выгружает из системного ssh-agent все ключи, сохранённые в Key Vault.
+// Пока ключ находится в агенте, любая программа или агент, запущенные от того же
+// пользователя, могут использовать его для входа на серверы, поэтому ключи
+// выгружаются при сворачивании в трей, выходе и по кнопке «Заблокировать».
+func (a *App) LockKeys() (int, error) {
+	if a.store == nil {
+		return 0, errNotReady
+	}
+
+	keys, err := a.store.Keys.List(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	loaded, err := agent.ListFingerprints()
+	if err != nil {
+		return 0, err
+	}
+
+	removed := 0
+	var errs []error
+	for i := range keys {
+		k := &keys[i]
+		if !loaded[k.Fingerprint] {
+			continue
+		}
+		if err := agent.RemoveKey(k.PublicKey); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", k.Name, err))
+			continue
+		}
+		removed++
+	}
+	a.emitAgentStatus()
+	return removed, errors.Join(errs...)
 }
 
 // writePubKey кладёт публичную часть ключа в pubkeys/<id>.pub: на неё
@@ -657,13 +733,18 @@ func (a *App) ensureKeyReady(keyID string) error {
 		return err
 	}
 	if loaded, err := agent.ListFingerprints(); err == nil && loaded[k.Fingerprint] {
+		a.emitAgentStatus()
 		return nil
 	}
 	privPEM, passphrase, err := a.decryptKey(k)
 	if err != nil {
 		return err
 	}
-	return agent.AddKey(privPEM, passphrase, k.Name)
+	if err := agent.AddKey(privPEM, passphrase, k.Name); err != nil {
+		return err
+	}
+	a.emitAgentStatus()
+	return nil
 }
 
 // --- Bootstrap ---

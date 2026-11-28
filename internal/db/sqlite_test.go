@@ -4,8 +4,43 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 )
+
+func TestDatabaseFilesArePrivate(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("chmod на Windows не выставляет POSIX-права")
+	}
+
+	path := filepath.Join(t.TempDir(), "vault.db")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	// Форсируем создание WAL, чтобы проверить и его права.
+	if err := store.Keys.Create(context.Background(), &SSHKey{
+		Name: "k", KeyType: "ed25519", Fingerprint: "SHA256:x",
+		PublicKey: "ssh-ed25519 AAAA", PrivateKeyEnc: []byte{1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		info, err := os.Stat(p)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if perm := info.Mode().Perm(); perm != 0600 {
+			t.Errorf("%s: perm = %o, want 0600", filepath.Base(p), perm)
+		}
+	}
+}
 
 func TestOpenMigrateAndCRUD(t *testing.T) {
 	// Пробелы и '#' в пути ломали DSN с префиксом "file:".

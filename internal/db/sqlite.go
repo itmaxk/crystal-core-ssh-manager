@@ -23,6 +23,7 @@ type Store struct {
 	Keys    *KeysRepo
 	Hosts   *HostsRepo
 	Tunnels *TunnelsRepo
+	path    string
 }
 
 func DefaultDBPath() (string, error) {
@@ -62,16 +63,31 @@ func Open(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
+	// SQLite создаёт файлы по umask (обычно 0644). Каталог и так 0700, но
+	// сузим права и на сами файлы — на случай копирования/бэкапа.
+	secureDBFiles(dbPath)
+
 	return &Store{
 		DB:      sqlDB,
 		Keys:    &KeysRepo{db: sqlDB},
 		Hosts:   &HostsRepo{db: sqlDB},
 		Tunnels: &TunnelsRepo{db: sqlDB},
+		path:    dbPath,
 	}, nil
 }
 
 func (s *Store) Close() error {
+	secureDBFiles(s.path)
 	return s.DB.Close()
+}
+
+// secureDBFiles выставляет 0600 на vault.db и его WAL/SHM-файлы.
+// Ошибки игнорируются: на Windows chmod ограничен, а отсутствие WAL/SHM —
+// нормальная ситуация.
+func secureDBFiles(dbPath string) {
+	for _, path := range []string{dbPath, dbPath + "-wal", dbPath + "-shm"} {
+		_ = os.Chmod(path, 0600)
+	}
 }
 
 func runMigrations(db *sql.DB) error {
