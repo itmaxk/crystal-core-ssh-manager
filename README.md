@@ -54,11 +54,19 @@
 
 ## Требования для сборки
 
-* **Go** 1.26+ (версия берётся из `go.mod`)
+* **Go** 1.26+ (версия берётся из `go.mod`), архив под `amd64` или `arm64` — `wails build` собирает под архитектуру хоста
 * **Node.js** 22+
 * **Wails CLI** той же версии, что и в `go.mod`: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1`
 * **Windows:** Windows Terminal (`wt.exe`) и включённая служба `OpenSSH Authentication Agent` (`sc config ssh-agent start=auto && sc start ssh-agent`)
-* **Linux:** `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`
+* **Linux:** `libgtk-3-dev`, `libwebkit2gtk-4.1-dev` (на старых дистрибутивах — `libwebkit2gtk-4.0-dev`), `libayatana-appindicator3-dev`
+
+### Автоматическая установка окружения
+
+```bash
+./scripts/setup-dev.sh
+```
+
+Скрипт сначала определяет ОС и архитектуру (`amd64` или `arm64`), затем выбирает способ установки: скачивает архив Go под эту архитектуру, ставит Wails CLI версии из `go.mod` и системные библиотеки. На Linux проверяется, какой WebKitGTK есть в репозиториях, и подбирается тег сборки — `webkit2_41` или `webkit2_40`. Поддерживаются apt (Ubuntu/Debian), dnf (Fedora), pacman (Arch) и zypper (openSUSE), на macOS — Xcode Command Line Tools. Повторный запуск уже установленные компоненты пропускает.
 
 ## Быстрый старт
 
@@ -72,12 +80,34 @@ wails dev
 # Тесты
 go test ./...
 
-# Продакшен-сборка (Linux с WebKitGTK 4.1: добавьте -tags webkit2_41)
+# Продакшен-сборка
+# Linux с WebKitGTK 4.1 (Ubuntu 22.04+, Debian 12+, Fedora 39+):
+wails build -clean -tags webkit2_41
+# Linux с WebKitGTK 4.0 (старые дистрибутивы): -tags webkit2_40
+# Windows и macOS: без тега
 wails build -clean
 
-# Windows: дополнительно собрать консольную CLI-обёртку рядом с основным .exe
+# CLI-обёртка рядом с основным бинарником
+# Windows:
 go build -ldflags="-s -w" -o build/bin/ssh-launcher-cli.exe ./cmd/ssh-launcher-cli
+# Linux и macOS:
+go build -ldflags="-s -w" -o build/bin/ssh-launcher-cli ./cmd/ssh-launcher-cli
 ```
+
+### ARM64 (aarch64)
+
+`wails build` собирает под архитектуру хоста. На arm64 (Raspberry Pi 4/5 с 64-битной ОС, ARM-серверы, Linux-VM на Apple Silicon) результат — `build/bin/CrystalCoreSSHManager` для `linux/arm64`. Готовых arm64-архивов в релизах нет — соберите локально:
+
+```bash
+./scripts/setup-dev.sh
+wails build -clean -tags webkit2_41
+./build/bin/CrystalCoreSSHManager
+```
+
+* `go version` должен показывать `linux/arm64` / `darwin/arm64`; скрипт сам скачивает нужный архив Go.
+* Нужен WebKitGTK 4.1 (`libwebkit2gtk-4.1-dev`). На Ubuntu 22.04 он лежит в `universe` — включите репозиторий, если пакет не находится.
+* Кросс-сборка amd64 ↔ arm64 требует кросс-компилятора C и ARM-сборок GTK/WebKit, поэтому собирайте нативно или в CI (`ubuntu-24.04-arm`).
+* Для Raspberry Pi нужна 64-битная ОС: 32-битный ARM (`armv7l`) не поддерживается WebKitGTK/Wails.
 
 ## Горячие клавиши
 
