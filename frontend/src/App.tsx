@@ -17,6 +17,7 @@ import { KeyVault } from './components/KeyVault';
 import { TunnelManager } from './components/TunnelManager';
 import { HostForm, hostToDraft, newHostDraft } from './components/HostForm';
 import { BackupPanel } from './components/BackupPanel';
+import { AgentAccessPanel } from './components/AgentAccessPanel';
 import { AboutCard, SidebarPromo } from './components/CrystalCorePromo';
 import { CloseToTrayDialog, isCloseHintHidden, setCloseHintHidden } from './components/CloseToTrayDialog';
 import { SecretClipStatus } from './components/SecretCopy';
@@ -235,6 +236,8 @@ export function App() {
                 {syncStatus && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{syncStatus}</p>}
                 {importCount !== null && <p className="mt-2 text-xs text-neutral-500">Найдено пользовательских хостов: {importCount}</p>}
               </div>
+
+              <AgentAccessPanel hosts={hosts} />
 
               <AboutCard />
 

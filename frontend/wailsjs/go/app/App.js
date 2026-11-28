@@ -70,6 +70,10 @@ export function GenerateKey(arg1, arg2, arg3) {
   return window['go']['app']['App']['GenerateKey'](arg1, arg2, arg3);
 }
 
+export function GetAgentAccess() {
+  return window['go']['app']['App']['GetAgentAccess']();
+}
+
 export function GetAppVersion() {
   return window['go']['app']['App']['GetAppVersion']();
 }
@@ -80,6 +84,10 @@ export function GetHostStatuses() {
 
 export function GetTunnelStatuses() {
   return window['go']['app']['App']['GetTunnelStatuses']();
+}
+
+export function GrantAgentAccess(arg1) {
+  return window['go']['app']['App']['GrantAgentAccess'](arg1);
 }
 
 export function HideToTray() {
@@ -138,6 +146,10 @@ export function ResolveHostKey(arg1) {
   return window['go']['app']['App']['ResolveHostKey'](arg1);
 }
 
+export function RevokeAgentAccess(arg1) {
+  return window['go']['app']['App']['RevokeAgentAccess'](arg1);
+}
+
 export function RunBootstrap(arg1) {
   return window['go']['app']['App']['RunBootstrap'](arg1);
 }
@@ -160,6 +172,10 @@ export function SaveTunnel(arg1) {
 
 export function SetDefaultKey(arg1) {
   return window['go']['app']['App']['SetDefaultKey'](arg1);
+}
+
+export function SetupAgentUser(arg1) {
+  return window['go']['app']['App']['SetupAgentUser'](arg1);
 }
 
 export function StartTunnel(arg1, arg2) {

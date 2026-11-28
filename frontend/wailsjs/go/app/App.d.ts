@@ -39,11 +39,15 @@ export function ExportBackup(arg1:string):Promise<string>;
 
 export function GenerateKey(arg1:string,arg2:string,arg3:boolean):Promise<db.SSHKey>;
 
+export function GetAgentAccess():Promise<app.AgentAccessState>;
+
 export function GetAppVersion():Promise<string>;
 
 export function GetHostStatuses():Promise<Record<string, ssh.PingResult>>;
 
 export function GetTunnelStatuses():Promise<Array<ssh.TunnelStatus>>;
+
+export function GrantAgentAccess(arg1:app.AgentGrantInput):Promise<app.AgentGrant>;
 
 export function HideToTray():Promise<void>;
 
@@ -73,6 +77,8 @@ export function RefreshHostsStatus():Promise<void>;
 
 export function ResolveHostKey(arg1:boolean):Promise<void>;
 
+export function RevokeAgentAccess(arg1:string):Promise<void>;
+
 export function RunBootstrap(arg1:app.BootstrapInput):Promise<ssh.BootstrapResult>;
 
 export function RunHostScript(arg1:string,arg2:string):Promise<void>;
@@ -84,6 +90,8 @@ export function SaveRDPCredentials(arg1:app.RDPCredentialsInput):Promise<void>;
 export function SaveTunnel(arg1:db.Tunnel):Promise<db.Tunnel>;
 
 export function SetDefaultKey(arg1:string):Promise<void>;
+
+export function SetupAgentUser(arg1:app.AgentSetupInput):Promise<app.AgentSetupResult>;
 
 export function StartTunnel(arg1:string,arg2:string):Promise<void>;
 

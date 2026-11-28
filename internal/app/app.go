@@ -53,6 +53,8 @@ type App struct {
 	bootstrapMu     sync.Mutex
 	bootstrapCancel context.CancelFunc
 	hostKeyCh       chan bool
+
+	agentAccessMu sync.Mutex
 }
 
 var tabColorRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)

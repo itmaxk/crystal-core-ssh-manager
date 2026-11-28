@@ -24,6 +24,143 @@ export namespace app {
 	        this.is_default = source["is_default"];
 	    }
 	}
+	export class AgentGrant {
+	    host_id: string;
+	    host_name: string;
+	    mode: string;
+	    source_ip?: string;
+	    permit_open?: string;
+	    ssh_command: string;
+	    created_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentGrant(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host_id = source["host_id"];
+	        this.host_name = source["host_name"];
+	        this.mode = source["mode"];
+	        this.source_ip = source["source_ip"];
+	        this.permit_open = source["permit_open"];
+	        this.ssh_command = source["ssh_command"];
+	        this.created_at = source["created_at"];
+	    }
+	}
+	export class AgentAccessState {
+	    supported: boolean;
+	    username: string;
+	    home: string;
+	    public_key: string;
+	    created_at: string;
+	    user_exists: boolean;
+	    grants: AgentGrant[];
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentAccessState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.supported = source["supported"];
+	        this.username = source["username"];
+	        this.home = source["home"];
+	        this.public_key = source["public_key"];
+	        this.created_at = source["created_at"];
+	        this.user_exists = source["user_exists"];
+	        this.grants = this.convertValues(source["grants"], AgentGrant);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class AgentGrantInput {
+	    host_id: string;
+	    mode: string;
+	    source_ip: string;
+	    permit_open: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentGrantInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host_id = source["host_id"];
+	        this.mode = source["mode"];
+	        this.source_ip = source["source_ip"];
+	        this.permit_open = source["permit_open"];
+	    }
+	}
+	export class AgentSetupInput {
+	    username: string;
+	    close_home: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentSetupInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.close_home = source["close_home"];
+	    }
+	}
+	export class AgentSetupResult {
+	    state: AgentAccessState;
+	    needs_elevation: boolean;
+	    script_path?: string;
+	    command?: string;
+	    output?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentSetupResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.state = this.convertValues(source["state"], AgentAccessState);
+	        this.needs_elevation = source["needs_elevation"];
+	        this.script_path = source["script_path"];
+	        this.command = source["command"];
+	        this.output = source["output"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class BootstrapInput {
 	    hostname: string;
 	    port: number;
