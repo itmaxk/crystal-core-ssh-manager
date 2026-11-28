@@ -182,3 +182,6 @@ if [ -n "$WEBKIT_TAG" ]; then
 else
 	echo "  Сборка: wails build -clean"
 fi
+if [ "$OS" = linux ]; then
+	echo "  Установка: ./scripts/install-linux.sh (меню, автозапуск, панель)"
+fi
